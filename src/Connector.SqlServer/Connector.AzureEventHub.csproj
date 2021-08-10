@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>CluedIn.Connector.AzureEventHub provides the ability to post events to Azure Event Hubs</Description>
+    <AssemblyName>CluedIn.Connector.AzureEventHub</AssemblyName>
+    <RootNamespace>CluedIn.Connector.AzureEventHub</RootNamespace>
+    <IsCluedInServerComponent>true</IsCluedInServerComponent>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Resources\azureeventhub.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\azureeventhub.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Azure.Messaging.EventHubs" />
+    <PackageReference Include="CluedIn.Core" />
+    <PackageReference Include="CluedIn.Core.Agent" />
+    <PackageReference Include="CluedIn.Crawling" />
+    <PackageReference Include="ComponentHost" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Dapper.SqlBuilder" />
+    <PackageReference Include="Microsoft.AspNet.WebApi.Client" />
+  </ItemGroup>
+
+  <!-- Disable to above cluedin assets and enable the below for local debugging  -->
+  <!--<ItemGroup>    
+    <ProjectReference Include="..\..\..\Cluedin\Code\Core\Core.csproj" />
+    <ProjectReference Include="..\..\..\Cluedin\Code\Core.Agent\Core.Agent.csproj" />
+    <ProjectReference Include="..\..\..\Cluedin\Code\Crawling\Crawling.csproj" />
+  </ItemGroup>-->
+</Project>
