@@ -29,7 +29,7 @@ namespace CluedIn.Connector.AzureEventHub
 
         public static IList<string> ServiceType = new List<string> { "Connector" };
         public static IList<string> Aliases = new List<string> { "AzureEventConnector" };
-        public const string IconResourceName = "Resources.azureeventhub.png";
+        public const string IconResourceName = "Resources.Event-Hubs.svg";
         public const string Instructions = "Provide authentication instructions here, if applicable";
         public const IntegrationType Type = IntegrationType.Connector;
         public const string Category = "Connectivity";

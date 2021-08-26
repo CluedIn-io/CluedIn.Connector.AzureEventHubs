@@ -6,10 +6,10 @@
     <IsCluedInServerComponent>true</IsCluedInServerComponent>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Resources\azureeventhub.png" />
+    <None Remove="Resources\Event-Hubs.svg" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\azureeventhub.png" />
+    <EmbeddedResource Include="Resources\Event-Hubs.svg" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Azure.Messaging.EventHubs" />
