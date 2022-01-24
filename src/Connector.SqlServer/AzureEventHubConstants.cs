@@ -42,7 +42,7 @@ namespace CluedIn.Connector.AzureEventHub
                 new Control
                 {
                     name = KeyName.ConnectionString,
-                    displayName = "ConnectionString",
+                    displayName = "Connection String",
                     type = "input",
                     isRequired = true
                 },
