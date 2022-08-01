@@ -1,13 +1,11 @@
 ﻿using System.Collections.Generic;
-using System.Data;
 using System.Threading.Tasks;
-using CluedIn.Core.Connectors;
-using Microsoft.Data.SqlClient;
+using Azure.Messaging.EventHubs;
 
 namespace CluedIn.Connector.AzureEventHub.Connector
 {
     public interface IAzureEventHubClient
     {
-        Task ExecuteCommandAsync(IConnectorConnection config, string commandText, IList<SqlParameter> param = null);
+        Task QueueData(IDictionary<string, object> data);
     }
 }

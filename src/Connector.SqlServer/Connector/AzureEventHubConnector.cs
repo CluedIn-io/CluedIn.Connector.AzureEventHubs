@@ -1,21 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
-using Azure.Messaging.EventHubs;
-using Azure.Messaging.EventHubs.Producer;
 using CluedIn.Core;
-using CluedIn.Core.Configuration;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.DataStore;
-using CluedIn.Core.Processing;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
 
 namespace CluedIn.Connector.AzureEventHub.Connector
@@ -23,14 +14,15 @@ namespace CluedIn.Connector.AzureEventHub.Connector
     public class AzureEventHubConnector : ConnectorBase
     {
         private readonly ILogger<AzureEventHubConnector> _logger;
-        private readonly IAzureEventHubClient _client;
+        private readonly IDictionary<Guid, IAzureEventHubClient> clients;
 
-     
-        public AzureEventHubConnector(IConfigurationRepository repo, ILogger<AzureEventHubConnector> logger, IAzureEventHubClient client) : base(repo)
+        public AzureEventHubConnector(IConfigurationRepository repo, ILogger<AzureEventHubConnector> logger) : base(repo)
         {
+            System.Diagnostics.Debugger.Launch();
             ProviderId = AzureEventHubConstants.ProviderId;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _client = client ?? throw new ArgumentNullException(nameof(client));
+
+            clients = new Dictionary<Guid, IAzureEventHubClient>();
         }
 
         public override async Task CreateContainer(ExecutionContext executionContext, Guid providerDefinitionId, CreateContainerModel model)
@@ -100,40 +92,29 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             return await Task.FromResult(true);
         }
 
-        public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, IDictionary<string, object> data)
+        public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId,
+            string containerName, IDictionary<string, object> data)
         {
-            var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-            var producerClient = new EventHubProducerClient((string)config.Authentication[AzureEventHubConstants.KeyName.ConnectionString], (string)config.Authentication[AzureEventHubConstants.KeyName.Name]);
+            var client = await GetClient(executionContext, providerDefinitionId, containerName);
 
-            using EventDataBatch eventBatch = await producerClient.CreateBatchAsync();
-            var userContext = executionContext;
-
-            for (int i = 1; i <= 3; i++)
-            {
-                if (!eventBatch.TryAdd(new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data)))))
-                {
-                    userContext.Log.LogError("Could not add event to Event Batch");
-                }
-            }
-
-            try
-            {
-                // Use the producer client to send the batch of events to the event hub
-                await producerClient.SendAsync(eventBatch);
-            }
-            catch (Exception exc)
-            {
-                userContext.Log.LogError("Could not send event to EventHub.", exc);
-            }
-            finally
-            {
-                await producerClient.DisposeAsync();
-            }
+            await client.QueueData(data);
         }
-
+        
         public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
         {
             await Task.FromResult(0);
+        }
+
+        private async Task<IAzureEventHubClient> GetClient(ExecutionContext executionContext, Guid providerDefinitionId, string containerName)
+        {
+            if (clients.TryGetValue(providerDefinitionId, out var client))
+                return client;
+
+            client = new AzureEventHubClient(executionContext, providerDefinitionId, containerName, await base.GetAuthenticationDetails(executionContext, providerDefinitionId));
+
+            clients.Add(providerDefinitionId, client);
+
+            return client;
         }
     }
 }
