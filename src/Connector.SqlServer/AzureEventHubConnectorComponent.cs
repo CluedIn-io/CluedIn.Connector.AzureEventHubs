@@ -43,7 +43,7 @@ namespace CluedIn.Connector.AzureEventHub
             Container.Register(Types.FromAssembly(asm).BasedOn<IProvider>().WithServiceFromInterface().If(t => !t.IsAbstract).LifestyleSingleton());
             Container.Register(Types.FromAssembly(asm).BasedOn<IEntityActionBuilder>().WithServiceFromInterface().If(t => !t.IsAbstract).LifestyleSingleton());
 
-            //Container.Register(Component.For<IAzureEventHubClient>().ImplementedBy<AzureEventHubClient>().OnlyNewServices());
+            Container.Register(Component.For<IAzureEventHubClient>().ImplementedBy<AzureEventHubClient>().OnlyNewServices());
 
             this.Log.LogInformation("[AzureEventHub] Azure Event Registered");
             State = ServiceState.Started;

@@ -12,67 +12,78 @@ using Microsoft.Extensions.Logging;
 
 namespace CluedIn.Connector.AzureEventHub.Connector
 {
-    public class AzureEventHubClient : EventHubBufferedProducerClient, IAzureEventHubClient, IDisposable
+    public class AzureEventHubClient : IAzureEventHubClient
     {
-        private readonly ExecutionContext _executionContext;
-        private readonly Guid _providerDefinitionId;
-        private readonly string _containerName;
-        private readonly IConnectorConnection _config;
+        private readonly ILogger<AzureEventHubClient> _logger;
 
-        #region Constructor & Destructor
-        public AzureEventHubClient(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, IConnectorConnection config) :
-            base(config.Authentication[AzureEventHubConstants.KeyName.ConnectionString].ToString(), config.Authentication[AzureEventHubConstants.KeyName.Name].ToString())
+        public AzureEventHubClient(ILogger<AzureEventHubClient> logger)
         {
-            _executionContext = executionContext;
-            _providerDefinitionId = providerDefinitionId;
-            _containerName = containerName;
-            _config = config;
-
-            SendEventBatchFailedAsync += ProducerClient_SendEventBatchFailedAsync;
-            SendEventBatchSucceededAsync += ProducerClient_SendEventBatchSucceededAsync;
-        }
-        ~AzureEventHubClient()
-        {
-            Dispose();
-        }
-        public async void Dispose()
-        {
-            await FlushAsync();
-
-            SendEventBatchFailedAsync -= ProducerClient_SendEventBatchFailedAsync;
-            SendEventBatchSucceededAsync -= ProducerClient_SendEventBatchSucceededAsync;
-
-            await DisposeAsync();
-        }
-        #endregion
-
-        public async Task QueueData(IDictionary<string, object> data)
-        {
-            var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data)));
-
-            _executionContext.Log.LogInformation($"[AzureEventHub] Enqueue: {eventData.EventBody}");
-
-            await EnqueueEventAsync(eventData);
+            _logger = logger;
         }
 
-        #region Events
-        private async Task ProducerClient_SendEventBatchFailedAsync(SendEventBatchFailedEventArgs arg)
+        public async Task QueueData(IConnectorConnection config, IDictionary<string, object> data)
         {
-            _executionContext.Log.LogError($"[AzureEventHub] Publishing failed for { arg.EventBatch.Count } events.  Error: '{ arg.Exception.Message }'");
-
-            foreach (var eventData in arg.EventBatch)
+            try
             {
-                _executionContext.Log.LogWarning($"[AzureEventHub] Requeue: {eventData.EventBody}");
+                var eventHubClient = new EventHubBufferedProducerClient(
+                    config.Authentication[AzureEventHubConstants.KeyName.ConnectionString].ToString(),
+                    config.Authentication[AzureEventHubConstants.KeyName.Name].ToString());
 
-                await EnqueueEventAsync(eventData);
+                try
+                {
+                    var retried = 0;
+                    var resetEvent = new System.Threading.AutoResetEvent(false);
+                    eventHubClient.SendEventBatchFailedAsync += args =>
+                    {
+                        _logger.LogError($"[AzureEventHub] Publishing failed for { args.EventBatch.Count } events.  Error: '{ args.Exception.Message }'");
+
+                        retried++;
+                        if (retried < 3)
+                        {
+                            foreach (var eventData in args.EventBatch)
+                            {
+                                _logger.LogWarning($"[AzureEventHub] Requeue: {eventData.EventBody}");
+
+                                eventHubClient.EnqueueEventAsync(eventData);
+                            }
+                        }
+                        else
+                        {
+                            resetEvent.Set();
+                            _logger.LogError($"[AzureEventHub] Retried count exceed. { args.EventBatch.Count } events will be disposed!");
+                        }
+                        return Task.CompletedTask;
+                    };
+                    eventHubClient.SendEventBatchSucceededAsync += args =>
+                    {
+                        _logger.LogDebug($"[AzureEventHub] { args.EventBatch.Count } events were published to partition: '{ args.PartitionId }.");
+
+                        resetEvent.Set();
+                        return Task.CompletedTask;
+                    };
+
+                    var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data)));
+                    _logger.LogDebug($"[AzureEventHub] Enqueue: {eventData.EventBody}");
+
+                    await eventHubClient.EnqueueEventAsync(eventData);
+
+                    resetEvent.WaitOne(60000);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[AzureEventHub] Error occured in queuing data!]");
+                }
+                finally
+                {
+                    // Closing the producer will flush any
+                    // enqueued events that have not been published.
+                    await eventHubClient.CloseAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[AzureEventHub] Unable to connect! {config}]");
             }
         }
-        private Task ProducerClient_SendEventBatchSucceededAsync(SendEventBatchSucceededEventArgs arg)
-        {
-            _executionContext.Log.LogDebug($"[AzureEventHub] { arg.EventBatch.Count } events were published to partition: '{ arg.PartitionId }.");
-
-            return Task.CompletedTask;
-        }
-        #endregion
     }
 }

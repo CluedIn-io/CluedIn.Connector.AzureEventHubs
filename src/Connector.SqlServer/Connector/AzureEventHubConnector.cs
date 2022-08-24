@@ -14,15 +14,16 @@ namespace CluedIn.Connector.AzureEventHub.Connector
     public class AzureEventHubConnector : ConnectorBase
     {
         private readonly ILogger<AzureEventHubConnector> _logger;
-        private readonly IDictionary<Guid, IAzureEventHubClient> clients;
+        private readonly IAzureEventHubClient _client;
 
-        public AzureEventHubConnector(IConfigurationRepository repo, ILogger<AzureEventHubConnector> logger) : base(repo)
+        public AzureEventHubConnector(IConfigurationRepository repo, ILogger<AzureEventHubConnector> logger, IAzureEventHubClient client) : base(repo)
         {
-            System.Diagnostics.Debugger.Launch();
+            //System.Diagnostics.Debugger.Launch();
             ProviderId = AzureEventHubConstants.ProviderId;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _client = client ?? throw new ArgumentNullException(nameof(client));
 
-            clients = new Dictionary<Guid, IAzureEventHubClient>();
+            _logger.LogInformation("[AzureEventHub] AzureEventHubConnector Initialized");
         }
 
         public override async Task CreateContainer(ExecutionContext executionContext, Guid providerDefinitionId, CreateContainerModel model)
@@ -92,29 +93,24 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             return await Task.FromResult(true);
         }
 
-        public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId,
-            string containerName, IDictionary<string, object> data)
+        public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, IDictionary<string, object> data)
         {
-            var client = await GetClient(executionContext, providerDefinitionId, containerName);
+            var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
 
-            await client.QueueData(data);
+            await _client.QueueData(config, data);
         }
         
         public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
         {
-            await Task.FromResult(0);
-        }
+            var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
 
-        private async Task<IAzureEventHubClient> GetClient(ExecutionContext executionContext, Guid providerDefinitionId, string containerName)
-        {
-            if (clients.TryGetValue(providerDefinitionId, out var client))
-                return client;
+            var data = new Dictionary<string, object>
+            {
+                { "OriginEntityCode", originEntityCode },
+                { "Edges", edges }
+            };
 
-            client = new AzureEventHubClient(executionContext, providerDefinitionId, containerName, await base.GetAuthenticationDetails(executionContext, providerDefinitionId));
-
-            clients.Add(providerDefinitionId, client);
-
-            return client;
+            await _client.QueueData(config, data);
         }
     }
 }
