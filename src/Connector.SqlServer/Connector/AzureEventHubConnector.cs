@@ -18,7 +18,6 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         public AzureEventHubConnector(IConfigurationRepository repo, ILogger<AzureEventHubConnector> logger, IAzureEventHubClient client) : base(repo)
         {
-            //System.Diagnostics.Debugger.Launch();
             ProviderId = AzureEventHubConstants.ProviderId;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _client = client ?? throw new ArgumentNullException(nameof(client));
