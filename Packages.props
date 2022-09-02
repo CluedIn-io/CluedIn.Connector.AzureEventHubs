@@ -4,7 +4,7 @@
     <_EasyNetQ>3.7.1</_EasyNetQ>
     <_EntityFramework>3.1.5</_EntityFramework>
     <_MicrosoftExtensions>3.1.5</_MicrosoftExtensions>
-    <_ComponentHost>2.0.0-*</_ComponentHost>
+    <_ComponentHost>2.0.4</_ComponentHost>
     <_AutoFixture>4.11.0</_AutoFixture>
     <_CluedIn>3.4.0-*</_CluedIn>
   </PropertyGroup>
@@ -15,7 +15,7 @@
         MUST SPECIFY IN CSPROJ AS <PackageReference Name="<depName>" />
     -->
     <PackageReference Update="Microsoft.NET.Test.Sdk" Version="16.5.0" />
-    <PackageReference Update="Azure.Messaging.EventHubs" Version="5.0.0" />
+    <PackageReference Update="Azure.Messaging.EventHubs" Version="5.7.1" />
     <PackageReference Update="AutoFixture.Xunit2" Version="$(_AutoFixture)" />
     <PackageReference Update="AutoFixture.Idioms" Version="$(_AutoFixture)" />
     <PackageReference Update="AutoFixture.AutoMoq" Version="$(_AutoFixture)" />
