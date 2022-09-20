@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Azure.Messaging.EventHubs;
 using CluedIn.Core;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.DataStore;
@@ -84,11 +85,29 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         public override async Task<bool> VerifyConnection(ExecutionContext executionContext, Guid providerDefinitionId)
         {
-            return await Task.FromResult(true);
+            var _config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+
+            return await VerifyConnection(_config);
         }
 
         public override async Task<bool> VerifyConnection(ExecutionContext executionContext, IDictionary<string, object> config)
         {
+            var _config = new ConnectorConnectionBase
+            {
+                Authentication = config
+            };
+
+            return await VerifyConnection(_config);
+        }
+
+        private async Task<bool> VerifyConnection(IConnectorConnection config)
+        {
+            await using (var client = _client.GetEventHubClient(config))
+            {
+                //this is to validate if it has a valid 'Event Hub Name'
+                var prop = await client.GetEventHubPropertiesAsync();
+                await client.CloseAsync();
+            }
             return await Task.FromResult(true);
         }
 
