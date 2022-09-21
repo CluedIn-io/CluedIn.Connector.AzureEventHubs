@@ -23,9 +23,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         {
             try
             {
-                var eventHubClient = new EventHubProducerClient(
-                    config.Authentication[AzureEventHubConstants.KeyName.ConnectionString].ToString(),
-                    config.Authentication[AzureEventHubConstants.KeyName.Name].ToString());
+                var eventHubClient = GetEventHubClient(config);
 
                 var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data)));
 
@@ -36,6 +34,13 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             {
                 _logger.LogError(ex, "[AzureEventHub] Error occurred in queuing data!]");
             }
+        }
+
+        public EventHubProducerClient GetEventHubClient(IConnectorConnection config)
+        {
+            return new EventHubProducerClient(
+                config.Authentication[AzureEventHubConstants.KeyName.ConnectionString].ToString(),
+                config.Authentication[AzureEventHubConstants.KeyName.Name].ToString());
         }
     }
 }
