@@ -1,21 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Azure.Messaging.EventHubs;
-using CluedIn.Core;
 using CluedIn.Core.Connectors;
+using CluedIn.Core.Data.Parts;
 using CluedIn.Core.DataStore;
+using CluedIn.Core.Streams.Models;
 using Microsoft.Extensions.Logging;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
 
 namespace CluedIn.Connector.AzureEventHub.Connector
 {
-    public class AzureEventHubConnector : ConnectorBase
+    public class AzureEventHubConnector : ConnectorBase, IConnectorStreamModeSupport
     {
         private readonly ILogger<AzureEventHubConnector> _logger;
         private readonly IAzureEventHubClient _client;
+        private StreamMode StreamMode { get; set; } = StreamMode.Sync;
 
         public AzureEventHubConnector(IConfigurationRepository repo, ILogger<AzureEventHubConnector> logger, IAzureEventHubClient client) : base(repo)
         {
@@ -117,7 +117,30 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             await _client.QueueData(config, data);
         }
-        
+
+        public async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string correlationId,
+            DateTimeOffset timestamp, VersionChangeType changeType, IDictionary<string, object> data)
+        {
+            if (StreamMode == StreamMode.EventStream)
+            {
+                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+
+                var dataWrapper = new Dictionary<string, object>
+                {
+                    { "TimeStamp", timestamp },
+                    { "VersionChangeType", changeType.ToString() },
+                    { "CorrelationId", correlationId },
+                    { "Data", data }
+                };
+
+                await _client.QueueData(config, dataWrapper);
+            }
+            else
+            {
+                await StoreData(executionContext, providerDefinitionId, containerName, data);
+            }
+        }
+
         public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
         {
             var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
@@ -129,6 +152,45 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             };
 
             await _client.QueueData(config, data);
+        }
+
+        public async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName,
+            string originEntityCode, string correlationId, DateTimeOffset timestamp, VersionChangeType changeType,
+            IEnumerable<string> edges)
+        {
+            if (StreamMode == StreamMode.EventStream)
+            {
+                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+
+                var dataWrapper = new Dictionary<string, object>
+                {
+                    { "TimeStamp", timestamp },
+                    { "VersionChangeType", changeType.ToString() },
+                    { "CorrelationId", correlationId },
+                    { "Edges", edges },
+                };
+
+                await _client.QueueData(config, dataWrapper);
+            }
+            else
+            {
+                await StoreEdgeData(executionContext, providerDefinitionId, containerName, originEntityCode, edges);
+            }
+        }
+
+        public IList<StreamMode> GetSupportedModes()
+        {
+            return new List<StreamMode> { StreamMode.Sync, StreamMode.EventStream };
+        }
+
+        public void SetMode(StreamMode mode)
+        {
+            StreamMode = mode;
+        }
+
+        public Task<string> GetCorrelationId()
+        {
+            return Task.FromResult(Guid.NewGuid().ToString());
         }
     }
 }
