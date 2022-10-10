@@ -45,7 +45,7 @@ namespace CluedIn.Connector.AzureEventHub
 
             Container.Register(Component.For<IAzureEventHubClient>().ImplementedBy<AzureEventHubClient>().OnlyNewServices());
 
-            this.Log.LogInformation("Azure Event Registered");
+            this.Log.LogInformation("[AzureEventHub] Azure Event Registered");
             State = ServiceState.Started;
         }
 

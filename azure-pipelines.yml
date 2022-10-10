@@ -49,3 +49,6 @@ steps:
     NUGET_KEY: $(nuget.key)
 
 - template: crawler.build.yml@templates
+  parameters:
+    githubReleaseInMaster: true
+    publicReleaseForMaster: false
