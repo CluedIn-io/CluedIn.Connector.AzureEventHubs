@@ -10,7 +10,6 @@ using Castle.MicroKernel.Registration;
 using Castle.MicroKernel.Resolvers;
 using Castle.Windsor;
 using CluedIn.Connector.AzureEventHub.Connector;
-using CluedIn.Connector.AzureServiceBus.Integration.Tests;
 using CluedIn.Core.Caching;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data.Parts;

@@ -4,7 +4,7 @@ using Castle.MicroKernel.Registration;
 using Castle.MicroKernel.Resolvers;
 using Moq;
 
-namespace CluedIn.Connector.AzureServiceBus.Integration.Tests
+namespace CluedIn.Connector.AzureEventHub.Integration.Tests
 {
     public class AutoMockingLazyComponentLoader : ILazyComponentLoader
     {
