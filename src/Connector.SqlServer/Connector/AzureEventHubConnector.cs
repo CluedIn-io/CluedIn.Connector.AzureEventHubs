@@ -85,7 +85,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         public override async Task<bool> VerifyConnection(ExecutionContext executionContext, Guid providerDefinitionId)
         {
-            var _config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+            var _config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
 
             return await VerifyConnection(_config);
         }
@@ -113,7 +113,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, IDictionary<string, object> data)
         {
-            var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+            var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
 
             await _client.QueueData(config, data);
         }
@@ -123,7 +123,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         {
             if (StreamMode == StreamMode.EventStream)
             {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
 
                 var dataWrapper = new Dictionary<string, object>
                 {
@@ -143,7 +143,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
         {
-            var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+            var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
 
             var data = new Dictionary<string, object>
             {
@@ -160,7 +160,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         {
             if (StreamMode == StreamMode.EventStream)
             {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
 
                 var dataWrapper = new Dictionary<string, object>
                 {
