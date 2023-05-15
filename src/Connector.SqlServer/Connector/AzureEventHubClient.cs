@@ -29,6 +29,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data,
                     new JsonSerializer
                     {
+                        Formatting = Formatting.Indented,
                         TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
                     }))
                 );

@@ -160,7 +160,7 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             if (mode == StreamMode.EventStream)
             {
                 await connector.StoreData(executionContext, providerDefinitionId, "test_container", "correlationId",
-                    new DateTimeOffset(2023, 5, 15, 9, 17, 0, TimeSpan.Zero), VersionChangeType.Changed, data);
+                    new DateTimeOffset(new DateTime(2023, 5, 15, 9, 17, 0, DateTimeKind.Utc), TimeSpan.Zero).ToUniversalTime(), VersionChangeType.Changed, data);
             }
             else
             {
@@ -174,7 +174,7 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
                 throw new TimeoutException();
             }
 
-            var receivedBody = JsonConvert.SerializeObject(JsonConvert.DeserializeObject(Encoding.UTF8.GetString(eventData.Body.ToArray())), Formatting.Indented);
+            var receivedBody = Encoding.UTF8.GetString(eventData.Body.ToArray());
 
             if (mode == StreamMode.Sync)
             {
@@ -193,7 +193,7 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             else
             {
                 receivedBody.Should().Be($@"{{
-  ""TimeStamp"": ""2023-05-15T19:17:00+10:00"",
+  ""TimeStamp"": ""2023-05-15T09:17:00+00:00"",
   ""VersionChangeType"": ""Changed"",
   ""CorrelationId"": ""correlationId"",
   ""Data"": {{
