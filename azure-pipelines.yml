@@ -1,6 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 parameters:
-  - name: runIngegrationTests
+  - name: runIntegrationTests
     displayName: Run Integration Tests
     type: boolean
     default: true
@@ -65,5 +65,5 @@ steps:
     parameters:
       githubReleaseInMaster: true
       publicReleaseForMaster: false
-      executeIngegrationTests: ${{ parameters.runIngegrationTests }}
+      executeIngegrationTests: ${{ parameters.runIntegrationTests }}
       publishCodeCoverage: true
