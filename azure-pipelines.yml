@@ -58,8 +58,8 @@ steps:
     inputs:
       targetType: inline
       script: |
-        Write-Host ("##vso[task.setvariable variable=EVENTHUB_ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING;]$(EVENTHUB_ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING)")
-        Write-Host ("##vso[task.setvariable variable=EVENTHUB_TESTQUEUE_CONNECTIONSTRING;]$(EVENTHUB_TESTQUEUE_CONNECTIONSTRING)")
+        Write-Host ("##vso[task.setvariable variable=EVENTHUB_ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING;]$(ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING)")
+        Write-Host ("##vso[task.setvariable variable=EVENTHUB_TESTQUEUE_CONNECTIONSTRING;]$(TESTQUEUE_CONNECTIONSTRING)")
 
   - template: crawler.build.yml@templates
     parameters:
