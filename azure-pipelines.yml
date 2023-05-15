@@ -44,18 +44,26 @@ variables:
 steps:
 
   # Configure NuGet
-- pwsh: |
-    @('develop','release','AzurePipelines') | ForEach-Object{
-        dotnet nuget update  source $_ -p $env:NUGET_KEY -u VssSessionToken --configfile nuget.config
-    }
-  condition: and(succeeded(), variables['nuget.key'])
-  displayName: 'Add api token to access nuget artifacts'
-  env:
-    NUGET_KEY: $(nuget.key)
+  - pwsh: |
+      @('develop','release','AzurePipelines') | ForEach-Object{
+          dotnet nuget update  source $_ -p $env:NUGET_KEY -u VssSessionToken --configfile nuget.config
+      }
+    condition: and(succeeded(), variables['nuget.key'])
+    displayName: 'Add api token to access nuget artifacts'
+    env:
+      NUGET_KEY: $(nuget.key)
 
-- template: crawler.build.yml@templates
-  parameters:
-    githubReleaseInMaster: true
-    publicReleaseForMaster: false
-    executeIngegrationTests: ${{ parameters.runIngegrationTests }}
-    publishCodeCoverage: true
+  - task: PowerShell@2
+    displayName: 'Set Environment variables'
+    inputs:
+      targetType: inline
+      script: |
+        Write-Host ("##vso[task.setvariable variable=EVENTHUB_ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING;]$(EVENTHUB_ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING)")
+        Write-Host ("##vso[task.setvariable variable=EVENTHUB_TESTQUEUE_CONNECTIONSTRING;]$(EVENTHUB_TESTQUEUE_CONNECTIONSTRING)")
+
+  - template: crawler.build.yml@templates
+    parameters:
+      githubReleaseInMaster: true
+      publicReleaseForMaster: false
+      executeIngegrationTests: ${{ parameters.runIngegrationTests }}
+      publishCodeCoverage: true
