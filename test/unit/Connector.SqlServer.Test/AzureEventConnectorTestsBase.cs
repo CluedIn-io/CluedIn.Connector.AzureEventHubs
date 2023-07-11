@@ -9,13 +9,12 @@ namespace CluedIn.Connector.AzureEventHub.Unit.Tests
     {
         protected readonly AzureEventHubConnector Sut;
         protected readonly Mock<ILogger<AzureEventHubConnector>> Logger = new Mock<ILogger<AzureEventHubConnector>>();
-        protected readonly Mock<IAzureEventHubClient> Client = new Mock<IAzureEventHubClient>();
         protected readonly Mock<IClockService> Clock = new Mock<IClockService>();
         protected readonly TestContext Context = new TestContext();
 
         public AzureEventConnectorTestsBase()
         {
-            Sut = new AzureEventHubConnector(Logger.Object, Client.Object, Clock.Object);
+            Sut = new AzureEventHubConnector(Logger.Object, Clock.Object);
         }
     }
 }

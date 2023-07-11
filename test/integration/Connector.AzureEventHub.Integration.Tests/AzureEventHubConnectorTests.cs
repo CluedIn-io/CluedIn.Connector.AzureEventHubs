@@ -49,7 +49,6 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             container.Register(Component.For<IApplicationCache>().ImplementedBy<InMemoryApplicationCache>());
             container.Register(Component.For<ILazyComponentLoader>().ImplementedBy<AutoMockingLazyComponentLoader>());
 
-            container.Register(Component.For<IAzureEventHubClient>().ImplementedBy<AzureEventHubClient>().OnlyNewServices());
             container.Register(Component.For<AzureEventHubConnector>());
 
             var executionContext = container.Resolve<ExecutionContext>();
@@ -77,8 +76,6 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             container.Register(Component.For<IWindsorContainer>().Instance(container));
             container.Register(Component.For<IApplicationCache>().ImplementedBy<InMemoryApplicationCache>());
             container.Register(Component.For<ILazyComponentLoader>().ImplementedBy<AutoMockingLazyComponentLoader>());
-
-            container.Register(Component.For<IAzureEventHubClient>().ImplementedBy<AzureEventHubClient>().OnlyNewServices());
 
             var connectionMock = new Mock<IConnectorConnectionV2>();
             connectionMock.Setup(x => x.Authentication).Returns(new Dictionary<string, object>
