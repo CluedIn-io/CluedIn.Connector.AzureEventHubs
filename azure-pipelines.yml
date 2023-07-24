@@ -31,7 +31,6 @@ pool:
   vmImage: 'windows-latest'
 
 variables:
-  - group: nuget
   - name: testFolderPath
     value: '$(Build.SourcesDirectory)/test'
   - name: DOTNET_SKIP_FIRST_TIME_EXPERIENCE
@@ -42,16 +41,22 @@ variables:
     value: Release
 
 steps:
+  - task: UseDotNet@2
+    displayName: Install .NET SDK 3.1
+    inputs:
+      version: 3.1.x
+      
+  - task: UseDotNet@2
+    displayName: Install .NET SDK 7.0
+    inputs:
+      # Pin version to prevent issue with output on solution build:
+      # https://github.com/dotnet/sdk/issues/30625
+      # We will have to update eventually, it's just by that time workaround might be available.
+      version: 7.0.103
 
   # Configure NuGet
-  - pwsh: |
-      @('develop','release','AzurePipelines') | ForEach-Object{
-          dotnet nuget update  source $_ -p $env:NUGET_KEY -u VssSessionToken --configfile nuget.config
-      }
-    condition: and(succeeded(), variables['nuget.key'])
-    displayName: 'Add api token to access nuget artifacts'
-    env:
-      NUGET_KEY: $(nuget.key)
+  - task: NuGetAuthenticate@0
+    displayName: 'Authenticate with nuget'
 
   - task: PowerShell@2
     displayName: 'Set Environment variables'
@@ -65,5 +70,5 @@ steps:
     parameters:
       githubReleaseInMaster: true
       publicReleaseForMaster: false
-      executeIngegrationTests: ${{ parameters.runIntegrationTests }}
+      executeIntegrationTests: ${{ parameters.runIntegrationTests }}
       publishCodeCoverage: true
