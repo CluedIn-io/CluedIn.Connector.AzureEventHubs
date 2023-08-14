@@ -99,18 +99,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             return new ConnectionVerificationResult(true);
         }
-
-        private async Task<bool> VerifyConnection(IConnectorConnection config)
-        {
-            await using (var client = _client.GetEventHubClient(config))
-            {
-                //this is to validate if it has a valid 'Event Hub Name'
-                var prop = await client.GetEventHubPropertiesAsync();
-                await client.CloseAsync();
-            }
-            return await Task.FromResult(true);
-        }
-
+        
         public override Task VerifyExistingContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
         {
             return Task.FromResult(0);
@@ -194,7 +183,6 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             return new[]
             {
                 StreamMode.Sync, // the old version had this even though it doesn't actually support a sync mode
-                StreamMode.EventStream
             };
         }
 
