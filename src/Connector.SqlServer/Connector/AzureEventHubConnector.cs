@@ -224,7 +224,6 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             return new[]
             {
                 StreamMode.Sync, // the old version had this even though it doesn't actually support a sync mode
-                StreamMode.EventStream
             };
         }
 
