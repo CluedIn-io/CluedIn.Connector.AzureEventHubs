@@ -1,57 +1,102 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Azure.Messaging.EventHubs;
+using Azure.Messaging.EventHubs.Producer;
+using CluedIn.Connector.AzureEventHub.Services;
+using CluedIn.Core;
 using CluedIn.Core.Connectors;
-using CluedIn.Core.Data.Parts;
-using CluedIn.Core.DataStore;
+using CluedIn.Core.Processing;
 using CluedIn.Core.Streams.Models;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
 
 namespace CluedIn.Connector.AzureEventHub.Connector
 {
-    public class AzureEventHubConnector : ConnectorBase, IConnectorStreamModeSupport
+    public class AzureEventHubConnector : ConnectorBaseV2
     {
         private readonly ILogger<AzureEventHubConnector> _logger;
-        private readonly IAzureEventHubClient _client;
-        private StreamMode StreamMode { get; set; } = StreamMode.Sync;
 
-        public AzureEventHubConnector(IConfigurationRepository repo, ILogger<AzureEventHubConnector> logger, IAzureEventHubClient client) : base(repo)
+        private readonly IClockService _clockService;
+
+        private readonly PartitionedBuffer<AzureEventHubConnectorJobData, EventData> _buffer;
+
+        public AzureEventHubConnector(ILogger<AzureEventHubConnector> logger, IClockService clockService)
+            : base(AzureEventHubConstants.ProviderId)
         {
-            ProviderId = AzureEventHubConstants.ProviderId;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _client = client ?? throw new ArgumentNullException(nameof(client));
+            _clockService = clockService;
+
+            _buffer = new PartitionedBuffer<AzureEventHubConnectorJobData, EventData>(50, 10000, Flush);
 
             _logger.LogInformation("[AzureEventHub] AzureEventHubConnector Initialized");
         }
 
-        public override async Task CreateContainer(ExecutionContext executionContext, Guid providerDefinitionId, CreateContainerModel model)
+        ~AzureEventHubConnector()
+        {
+            _buffer.Dispose();
+        }
+
+        private readonly Dictionary<AzureEventHubConnectorJobData, EventHubProducerClient> _cache = new Dictionary<AzureEventHubConnectorJobData, EventHubProducerClient>();
+
+        private async Task Flush(AzureEventHubConnectorJobData configuration, EventData[] eventData)
+        {
+            if (eventData == null)
+            {
+                return;
+            }
+
+            if (eventData.Length == 0)
+            {
+                return;
+            }
+
+            if (!_cache.TryGetValue(configuration, out var client))
+            {
+                _cache.Add(configuration, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
+            }
+
+            try
+            {
+                await client.SendAsync(eventData);
+            }
+            catch
+            {
+                _cache.Remove(configuration);
+                throw;
+            }
+        }
+
+        public override async Task CreateContainer(ExecutionContext executionContext, Guid connectorProviderDefinitionId, IReadOnlyCreateContainerModelV2 model)
         {
             await Task.FromResult(0);
         }
 
-        public override async Task EmptyContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
+        public override async Task EmptyContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
         {
             await Task.FromResult(0);
         }
 
-        public override async Task ArchiveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
+        public override async Task ArchiveContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
         {
             await Task.FromResult(0);
         }
 
-        public override async Task RenameContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id, string newName)
+        public override async Task RenameContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel, string oldContainerName)
         {
             await Task.FromResult(0);
         }
 
-        public override async Task RemoveContainer(ExecutionContext executionContext, Guid providerDefinitionId, string id)
+        public override async Task RemoveContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
         {
             await Task.FromResult(0);
         }
 
-        public override Task<string> GetValidDataTypeName(ExecutionContext executionContext, Guid providerDefinitionId, string name)
+        public override Task<string> GetValidMappingDestinationPropertyName(ExecutionContext executionContext, Guid providerDefinitionId, string name)
         {
             // Strip non-alpha numeric characters
             var result = Regex.Replace(name, @"[^A-Za-z0-9]+", "");
@@ -78,119 +123,113 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             return await Task.FromResult(new List<IConnectorContainer>());
         }
 
-        public override async Task<IEnumerable<IConnectionDataType>> GetDataTypes(ExecutionContext executionContext, Guid providerDefinitionId, string containerId)
+        public override async Task<ConnectionVerificationResult> VerifyConnection(ExecutionContext executionContext, IReadOnlyDictionary<string, object> config)
         {
-            return await Task.FromResult(new List<IConnectionDataType>());
-        }
+            var configuration = new AzureEventHubConnectorJobData(config.ToDictionary(x => x.Key, x => x.Value));
 
-        public override async Task<bool> VerifyConnection(ExecutionContext executionContext, Guid providerDefinitionId)
-        {
-            var _config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-            return await VerifyConnection(_config);
-        }
-
-        public override async Task<bool> VerifyConnection(ExecutionContext executionContext, IDictionary<string, object> config)
-        {
-            var _config = new ConnectorConnectionBase
-            {
-                Authentication = config
-            };
-
-            return await VerifyConnection(_config);
-        }
-
-        private async Task<bool> VerifyConnection(IConnectorConnection config)
-        {
-            await using (var client = _client.GetEventHubClient(config))
+            await using (var client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name))
             {
                 //this is to validate if it has a valid 'Event Hub Name'
-                var prop = await client.GetEventHubPropertiesAsync();
+                await client.GetEventHubPropertiesAsync();
                 await client.CloseAsync();
             }
-            return await Task.FromResult(true);
+
+            return new ConnectionVerificationResult(true);
         }
 
-        public override async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, IDictionary<string, object> data)
+        public override Task VerifyExistingContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
         {
-            var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-            await _client.QueueData(config, data);
+            return Task.FromResult(0);
         }
 
-        public async Task StoreData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string correlationId,
-            DateTimeOffset timestamp, VersionChangeType changeType, IDictionary<string, object> data)
+        public override async Task<SaveResult> StoreData(ExecutionContext executionContext, IReadOnlyStreamModel streamModel, IReadOnlyConnectorEntityData connectorEntityData)
         {
-            if (StreamMode == StreamMode.EventStream)
+            var providerDefinitionId = streamModel.ConnectorProviderDefinitionId!.Value;
+
+            // matching output format of previous version of the connector
+            var data = connectorEntityData.Properties.ToDictionary(x => x.Name, x => x.Value);
+            data.Add("Id", connectorEntityData.EntityId);
+
+            if (connectorEntityData.PersistInfo != null)
             {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
+                data.Add("PersistHash", connectorEntityData.PersistInfo.PersistHash);
+            }
 
+            if (connectorEntityData.OriginEntityCode != null)
+            {
+                data.Add("OriginEntityCode", connectorEntityData.OriginEntityCode.ToString());
+            }
+
+            if (connectorEntityData.EntityType != null)
+            {
+                data.Add("EntityType", connectorEntityData.EntityType.ToString());
+            }
+            data.Add("Codes", connectorEntityData.EntityCodes.Select(c => c.ToString()));
+            // end match previous version of the connector
+
+            if (connectorEntityData.OutgoingEdges.SafeEnumerate().Any())
+            {
+                data.Add("OutgoingEdges", connectorEntityData.OutgoingEdges);
+            }
+
+            if (connectorEntityData.IncomingEdges.SafeEnumerate().Any())
+            {
+                data.Add("IncomingEdges", connectorEntityData.IncomingEdges);
+            }
+
+            if (connectorEntityData.StreamMode == StreamMode.EventStream)
+            {
                 var dataWrapper = new Dictionary<string, object>
                 {
-                    { "TimeStamp", timestamp },
-                    { "VersionChangeType", changeType.ToString() },
-                    { "CorrelationId", correlationId },
+                    { "TimeStamp", _clockService.Now },
+                    { "VersionChangeType", connectorEntityData.ChangeType.ToString() },
                     { "Data", data }
                 };
 
-                await _client.QueueData(config, dataWrapper);
+                data = dataWrapper;
             }
             else
             {
-                await StoreData(executionContext, providerDefinitionId, containerName, data);
+                data.Add("ChangeType", connectorEntityData.ChangeType.ToString());
             }
-        }
 
-        public override async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName, string originEntityCode, IEnumerable<string> edges)
-        {
-            var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-            var data = new Dictionary<string, object>
-            {
-                { "OriginEntityCode", originEntityCode },
-                { "Edges", edges }
-            };
-
-            await _client.QueueData(config, data);
-        }
-
-        public async Task StoreEdgeData(ExecutionContext executionContext, Guid providerDefinitionId, string containerName,
-            string originEntityCode, string correlationId, DateTimeOffset timestamp, VersionChangeType changeType,
-            IEnumerable<string> edges)
-        {
-            if (StreamMode == StreamMode.EventStream)
-            {
-                var config = await base.GetAuthenticationDetails(executionContext, providerDefinitionId);
-
-                var dataWrapper = new Dictionary<string, object>
+            var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data,
+                new JsonSerializer
                 {
-                    { "TimeStamp", timestamp },
-                    { "VersionChangeType", changeType.ToString() },
-                    { "CorrelationId", correlationId },
-                    { "Edges", edges },
-                };
+                    Formatting = Formatting.Indented,
+                    TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
+                }))
+            );
 
-                await _client.QueueData(config, dataWrapper);
-            }
-            else
+            var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+            var configurations = new AzureEventHubConnectorJobData(config.Authentication.ToDictionary(x => x.Key, x => x.Value));
+
+            await _buffer.Add(configurations, eventData);
+
+            return new SaveResult(SaveResultState.Success);
+        }
+
+        public override Task<ConnectorLatestEntityPersistInfo> GetLatestEntityPersistInfo(ExecutionContext executionContext, IReadOnlyStreamModel streamModel, Guid entityId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override Task<IAsyncEnumerable<ConnectorLatestEntityPersistInfo>> GetLatestEntityPersistInfos(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override IReadOnlyCollection<StreamMode> GetSupportedModes()
+        {
+            return new[]
             {
-                await StoreEdgeData(executionContext, providerDefinitionId, containerName, originEntityCode, edges);
-            }
+                StreamMode.EventStream,
+            };
         }
 
-        public IList<StreamMode> GetSupportedModes()
+        public virtual async Task<IConnectorConnectionV2> GetAuthenticationDetails(ExecutionContext executionContext, Guid providerDefinitionId)
         {
-            return new List<StreamMode> { StreamMode.Sync, StreamMode.EventStream };
-        }
-
-        public void SetMode(StreamMode mode)
-        {
-            StreamMode = mode;
-        }
-
-        public Task<string> GetCorrelationId()
-        {
-            return Task.FromResult(Guid.NewGuid().ToString());
+            return await AuthenticationDetailsHelper.GetAuthenticationDetails(executionContext, providerDefinitionId);
         }
     }
 }

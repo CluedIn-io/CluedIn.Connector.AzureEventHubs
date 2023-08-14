@@ -6,7 +6,7 @@
     <_MicrosoftExtensions>3.1.5</_MicrosoftExtensions>
     <_ComponentHost>2.0.4</_ComponentHost>
     <_AutoFixture>4.11.0</_AutoFixture>
-    <_CluedIn>3.4.0-*</_CluedIn>
+    <_CluedIn>3.6.0-*</_CluedIn>
   </PropertyGroup>
   <ItemGroup>
     <!--
@@ -28,6 +28,8 @@
     <PackageReference Update="Shouldly" Version="3.0.2" />
     <PackageReference Update="Microsoft.EntityFrameworkCore" version="$(_EntityFramework)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.InMemory" version="$(_EntityFramework)" />
+    <PackageReference Update="coverlet.collector" Version="1.2.0" />
+    <PackageReference Update="FluentAssertions" Version="6.11.0" />
   </ItemGroup>
   <ItemGroup>
     <!--
