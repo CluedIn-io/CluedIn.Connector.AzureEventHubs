@@ -1,14 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Azure.Messaging.EventHubs;
+using Azure.Messaging.EventHubs.Producer;
 using CluedIn.Connector.AzureEventHub.Services;
 using CluedIn.Core;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Processing;
 using CluedIn.Core.Streams.Models;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
 
 namespace CluedIn.Connector.AzureEventHub.Connector
@@ -17,18 +21,54 @@ namespace CluedIn.Connector.AzureEventHub.Connector
     {
         private readonly ILogger<AzureEventHubConnector> _logger;
 
-        private readonly IAzureEventHubClient _client;
-
         private readonly IClockService _clockService;
 
-        public AzureEventHubConnector(ILogger<AzureEventHubConnector> logger, IAzureEventHubClient client, IClockService clockService)
+        private readonly PartitionedBuffer<AzureEventHubConnectorJobData, EventData> _buffer;
+
+        public AzureEventHubConnector(ILogger<AzureEventHubConnector> logger, IClockService clockService)
             : base(AzureEventHubConstants.ProviderId)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _client = client ?? throw new ArgumentNullException(nameof(client));
             _clockService = clockService;
 
+            _buffer = new PartitionedBuffer<AzureEventHubConnectorJobData, EventData>(50, 10000, Flush);
+
             _logger.LogInformation("[AzureEventHub] AzureEventHubConnector Initialized");
+        }
+
+        ~AzureEventHubConnector()
+        {
+            _buffer.Dispose();
+        }
+
+        private readonly Dictionary<AzureEventHubConnectorJobData, EventHubProducerClient> _cache = new Dictionary<AzureEventHubConnectorJobData, EventHubProducerClient>();
+
+        private async Task Flush(AzureEventHubConnectorJobData configuration, EventData[] eventData)
+        {
+            if (eventData == null)
+            {
+                return;
+            }
+
+            if (eventData.Length == 0)
+            {
+                return;
+            }
+
+            if (!_cache.TryGetValue(configuration, out var client))
+            {
+                _cache.Add(configuration, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
+            }
+
+            try
+            {
+                await client.SendAsync(eventData);
+            }
+            catch
+            {
+                _cache.Remove(configuration);
+                throw;
+            }
         }
 
         public override async Task CreateContainer(ExecutionContext executionContext, Guid connectorProviderDefinitionId, IReadOnlyCreateContainerModelV2 model)
@@ -85,12 +125,9 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         public override async Task<ConnectionVerificationResult> VerifyConnection(ExecutionContext executionContext, IReadOnlyDictionary<string, object> config)
         {
-            var connectionBase = new ConnectorConnectionBase
-            {
-                Authentication = config.ToDictionary(x => x.Key, x => x.Value)
-            };
+            var configuration = new AzureEventHubConnectorJobData(config.ToDictionary(x => x.Key, x => x.Value));
 
-            await using (var client = _client.GetEventHubClient(connectionBase))
+            await using (var client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name))
             {
                 //this is to validate if it has a valid 'Event Hub Name'
                 await client.GetEventHubPropertiesAsync();
@@ -99,7 +136,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             return new ConnectionVerificationResult(true);
         }
-        
+
         public override Task VerifyExistingContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
         {
             return Task.FromResult(0);
@@ -156,14 +193,18 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 data.Add("ChangeType", connectorEntityData.ChangeType.ToString());
             }
 
+            var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data,
+                new JsonSerializer
+                {
+                    Formatting = Formatting.Indented,
+                    TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
+                }))
+            );
+
             var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+            var configurations = new AzureEventHubConnectorJobData(config.Authentication.ToDictionary(x => x.Key, x => x.Value));
 
-            var connectionBase = new ConnectorConnectionBase
-            {
-                Authentication = config.Authentication.ToDictionary(x => x.Key, x => x.Value)
-            };
-
-            await _client.QueueData(connectionBase, data);
+            await _buffer.Add(configurations, eventData);
 
             return new SaveResult(SaveResultState.Success);
         }
@@ -182,7 +223,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         {
             return new[]
             {
-                StreamMode.Sync, // the old version had this even though it doesn't actually support a sync mode
+                StreamMode.EventStream,
             };
         }
 
