@@ -10,13 +10,15 @@ using Castle.MicroKernel.Registration;
 using Castle.MicroKernel.Resolvers;
 using Castle.Windsor;
 using CluedIn.Connector.AzureEventHub.Connector;
+using CluedIn.Connector.AzureEventHub.Services;
 using CluedIn.Core.Caching;
 using CluedIn.Core.Connectors;
+using CluedIn.Core.Data;
 using CluedIn.Core.Data.Parts;
+using CluedIn.Core.Data.Vocabularies;
 using CluedIn.Core.Streams.Models;
 using FluentAssertions;
 using Moq;
-using Newtonsoft.Json;
 using Xunit;
 using Xunit.Abstractions;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
@@ -47,7 +49,6 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             container.Register(Component.For<IApplicationCache>().ImplementedBy<InMemoryApplicationCache>());
             container.Register(Component.For<ILazyComponentLoader>().ImplementedBy<AutoMockingLazyComponentLoader>());
 
-            container.Register(Component.For<IAzureEventHubClient>().ImplementedBy<AzureEventHubClient>().OnlyNewServices());
             container.Register(Component.For<AzureEventHubConnector>());
 
             var executionContext = container.Resolve<ExecutionContext>();
@@ -55,14 +56,14 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             var connector = container.Resolve<AzureEventHubConnector>();
 
             // act
-            var valid = await connector.VerifyConnection(executionContext, new Dictionary<string, object>
+            var verificationResult = await connector.VerifyConnection(executionContext, new Dictionary<string, object>
             {
                 { AzureEventHubConstants.KeyName.ConnectionString, TestEventHubConnectionString },
                 { AzureEventHubConstants.KeyName.Name, TestEventHubName }
             });
 
             // assert
-            Assert.True(valid);
+            Assert.True(verificationResult.Success);
         }
 
         [Theory]
@@ -76,20 +77,24 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             container.Register(Component.For<IApplicationCache>().ImplementedBy<InMemoryApplicationCache>());
             container.Register(Component.For<ILazyComponentLoader>().ImplementedBy<AutoMockingLazyComponentLoader>());
 
-            container.Register(Component.For<IAzureEventHubClient>().ImplementedBy<AzureEventHubClient>().OnlyNewServices());
+            var connectionMock = new Mock<IConnectorConnectionV2>();
+            connectionMock.Setup(x => x.Authentication).Returns(new Dictionary<string, object>
+            {
+                { AzureEventHubConstants.KeyName.ConnectionString, TestEventHubConnectionString },
+                { AzureEventHubConstants.KeyName.Name, TestEventHubName }
+            });
+
+            var clockMock = new Mock<IClockService>();
+            clockMock.Setup(x => x.Now)
+                .Returns(new DateTimeOffset(new DateTime(2023, 5, 15, 9, 17, 0, DateTimeKind.Utc), TimeSpan.Zero)
+                    .ToUniversalTime());
+            container.Register(Component.For<IClockService>().Instance(clockMock.Object));
 
             var executionContext = container.Resolve<ExecutionContext>();
 
             var connectorMock = new Mock<AzureEventHubConnector>(MockBehavior.Default,
                 typeof(AzureEventHubConnector).GetConstructors().First().GetParameters()
                     .Select(p => container.Resolve(p.ParameterType)).ToArray());
-
-            var connectionMock = new Mock<IConnectorConnection>();
-            connectionMock.Setup(x => x.Authentication).Returns(new Dictionary<string, object>
-            {
-                { AzureEventHubConstants.KeyName.ConnectionString, TestEventHubConnectionString },
-                { AzureEventHubConstants.KeyName.Name, TestEventHubName }
-            });
 
             var providerDefinitionId = Guid.NewGuid();
 
@@ -99,16 +104,25 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
 
             var entityId = Guid.NewGuid().ToString();
 
-            var data = new Dictionary<string, object>
-            {
-                { "user.lastName", "Picard" },
-                { "Name", "Jean Luc Picard" },
-                { "Id", entityId },
-                { "PersistHash", "1lzghdhhgqlnucj078/77q==" },
-                { "OriginEntityCode", "/Person#Acceptance:7c5591cf-861a-4642-861d-3b02485854a0" },
-                { "EntityType", "/Person" },
-                { "Codes", new[] { "/Person#Acceptance:7c5591cf-861a-4642-861d-3b02485854a0" } },
-            };
+            var data = new ConnectorEntityData(VersionChangeType.Changed, mode,
+                Guid.Parse(entityId),
+                new ConnectorEntityPersistInfo("1lzghdhhgqlnucj078/77q==", 1), null,
+                EntityCode.FromKey($"/Person#Acceptance:{entityId}"),
+                "/Person",
+                new[]
+                {
+                    new ConnectorPropertyData("user.lastName", "Picard",
+                        new VocabularyKeyConnectorPropertyDataType(new VocabularyKey("user.lastName"))),
+                    new ConnectorPropertyData("Name", "Jean Luc Picard",
+                        new EntityPropertyConnectorPropertyDataType(typeof(string))),
+                },
+                new IEntityCode[] { EntityCode.FromKey($"/Person#Acceptance:{entityId}") },
+                null, null);
+
+            var streamModel = new Mock<IReadOnlyStreamModel>();
+            streamModel.Setup(x => x.ConnectorProviderDefinitionId).Returns(providerDefinitionId);
+            streamModel.Setup(x => x.ContainerName).Returns("test_container");
+            streamModel.Setup(x => x.Mode).Returns(mode);
 
             var connector = connectorMock.Object;
 
@@ -153,18 +167,8 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
                 throw new TimeoutException();
             }
 
-            connector.SetMode(mode);
-
             // act
-            if (mode == StreamMode.EventStream)
-            {
-                await connector.StoreData(executionContext, providerDefinitionId, "test_container", "correlationId",
-                    new DateTimeOffset(new DateTime(2023, 5, 15, 9, 17, 0, DateTimeKind.Utc), TimeSpan.Zero).ToUniversalTime(), VersionChangeType.Changed, data);
-            }
-            else
-            {
-                await connector.StoreData(executionContext, providerDefinitionId, "test_container", data);
-            }
+            await connector.StoreData(executionContext, streamModel.Object, data);
 
             // assert
 
@@ -182,11 +186,12 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
   ""Name"": ""Jean Luc Picard"",
   ""Id"": ""{entityId}"",
   ""PersistHash"": ""1lzghdhhgqlnucj078/77q=="",
-  ""OriginEntityCode"": ""/Person#Acceptance:7c5591cf-861a-4642-861d-3b02485854a0"",
+  ""OriginEntityCode"": ""/Person#Acceptance:{entityId}"",
   ""EntityType"": ""/Person"",
   ""Codes"": [
-    ""/Person#Acceptance:7c5591cf-861a-4642-861d-3b02485854a0""
-  ]
+    ""/Person#Acceptance:{entityId}""
+  ],
+  ""ChangeType"": ""Changed""
 }}");
             }
             else
@@ -194,16 +199,15 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
                 receivedBody.Should().Be($@"{{
   ""TimeStamp"": ""2023-05-15T09:17:00+00:00"",
   ""VersionChangeType"": ""Changed"",
-  ""CorrelationId"": ""correlationId"",
   ""Data"": {{
     ""user.lastName"": ""Picard"",
     ""Name"": ""Jean Luc Picard"",
     ""Id"": ""{entityId}"",
     ""PersistHash"": ""1lzghdhhgqlnucj078/77q=="",
-    ""OriginEntityCode"": ""/Person#Acceptance:7c5591cf-861a-4642-861d-3b02485854a0"",
+    ""OriginEntityCode"": ""/Person#Acceptance:{entityId}"",
     ""EntityType"": ""/Person"",
     ""Codes"": [
-      ""/Person#Acceptance:7c5591cf-861a-4642-861d-3b02485854a0""
+      ""/Person#Acceptance:{entityId}""
     ]
   }}
 }}");
