@@ -56,6 +56,6 @@ steps:
   - template: crawler.build.yml@templates
     parameters:
       githubReleaseInMaster: true
-      publicReleaseForMaster: false
+      publicReleaseForMaster: true
       executeIntegrationTests: ${{ parameters.runIntegrationTests }}
       publishCodeCoverage: true
