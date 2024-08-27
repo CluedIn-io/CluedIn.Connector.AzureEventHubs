@@ -16,7 +16,7 @@ namespace CluedIn.Connector.RealTimeIntelligence
         public const string ConnectorName = "RealTimeIntelligenceConnector";
         public const string ConnectorComponentName = "RealTimeIntelligenceConnector";
         public const string ConnectorDescription = "Supports publishing of data to Real Time Intelligence in Microsoft Fabric.";
-        public const string Uri = "https://learn.microsoft.com/en-us/fabric/data-activator/data-activator-introduction";
+        public const string Uri = "https://learn.microsoft.com/en-us/fabric/real-time-intelligence/";
 
         public static readonly Guid ProviderId = Guid.Parse("{4AFB651C-36DA-47F3-B461-021999A9D634}");
         public const string ProviderName = "Real Time Intelligence Connector";
