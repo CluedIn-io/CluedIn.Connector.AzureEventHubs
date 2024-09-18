@@ -35,6 +35,10 @@
     <PackageProjectUrl>http://cluedin.com</PackageProjectUrl>
     <PackageIcon>nugetlogo.png</PackageIcon>
   </PropertyGroup>
+  
+  <PropertyGroup Label="FixBuildDefault">
+	  <IncludeProjectsNotInAssetsFileInDepsFile>false</IncludeProjectsNotInAssetsFileInDepsFile>
+  </PropertyGroup>
 
   <ItemGroup Label="Package Includes">
     <None Include="$(MSBuildThisFileDirectory)build\assets\nugetlogo.png" Pack="true" PackagePath="\" />
