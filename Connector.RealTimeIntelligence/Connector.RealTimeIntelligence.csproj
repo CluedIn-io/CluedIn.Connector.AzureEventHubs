@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Resources\synapse-real-time-intelligence-icon.png" />
+    <None Remove="Resources\data_explorer.svg" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\synapse-real-time-intelligence-icon.png" />
+    <EmbeddedResource Include="Resources\data_explorer.svg" />
   </ItemGroup>
 
   <ItemGroup>

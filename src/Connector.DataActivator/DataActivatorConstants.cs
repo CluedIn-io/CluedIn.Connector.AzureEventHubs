@@ -16,7 +16,7 @@ public class DataActivatorConstants
     public const bool RequiresAppInstall = false;
     public const string AppInstallUrl = null;
     public const string ReAuthEndpoint = null;
-    public const string IconResourceName = "Resources.dataactivator.png";
+    public const string IconResourceName = "Resources.data_activator.svg";
     public const string Instructions = "Provide authentication instructions here, if applicable";
     public const IntegrationType Type = IntegrationType.Connector;
     public const string Category = "Connectivity";

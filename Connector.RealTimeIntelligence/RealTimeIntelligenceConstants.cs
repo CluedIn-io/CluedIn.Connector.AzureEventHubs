@@ -16,7 +16,7 @@ public class RealTimeIntelligenceConstants
     public const bool RequiresAppInstall = false;
     public const string AppInstallUrl = null;
     public const string ReAuthEndpoint = null;
-    public const string IconResourceName = "Resources.synapse-real-time-intelligence-icon.png";
+    public const string IconResourceName = "Resources.data_explorer.svg";
     public const string Instructions = "Provide authentication instructions here, if applicable";
     public const IntegrationType Type = IntegrationType.Connector;
     public const string Category = "Connectivity";

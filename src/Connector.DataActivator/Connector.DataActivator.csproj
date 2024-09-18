@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Resources\dataactivator.png" />
+    <None Remove="Resources\data_activator.svg" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\dataactivator.png" />
+    <EmbeddedResource Include="Resources\data_activator.svg" />
   </ItemGroup>
 
   <ItemGroup>
