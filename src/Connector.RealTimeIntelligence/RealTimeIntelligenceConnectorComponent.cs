@@ -25,8 +25,6 @@ public sealed class RealTimeIntelligenceConnectorComponent : ServiceApplicationC
         // Dev. Note: Potential for compiler warning here ... CA2214: Do not call overridable methods in constructors
         //   this class has been sealed to prevent the CA2214 waring being raised by the compiler
         Container.Register(Component.For<RealTimeIntelligenceConnectorComponent>().Instance(this));
-
-        //Container.Register(Component.For<ISqlClient>().ImplementedBy<SqlClient>().OnlyNewServices());
     }
 
     /**********************************************************************************************************
@@ -36,11 +34,8 @@ public sealed class RealTimeIntelligenceConnectorComponent : ServiceApplicationC
     /// <summary>Starts this instance.</summary>
     public override void Start()
     {
-        //Container.Install(new InstallComponents());
-
         var asm = Assembly.GetExecutingAssembly();
         Container.Register(Types.FromAssembly(asm).BasedOn<IProvider>().WithServiceFromInterface().If(t => !t.IsAbstract).LifestyleSingleton());
-        // Container.Register(Types.FromAssembly(asm).BasedOn<IEntityActionBuilder>().WithServiceFromInterface().If(t => !t.IsAbstract).LifestyleSingleton());
 
         Log.LogInformation("[RealTimeIntelligence] RealTime Intelligence Registered");
         State = ServiceState.Started;
