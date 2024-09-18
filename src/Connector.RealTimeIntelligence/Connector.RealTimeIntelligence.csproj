@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Connector.SqlServer\Connector.AzureEventHub.csproj" />
+    <ProjectReference Include="..\Connector.SqlServer\Connector.AzureEventHub.csproj" />
   </ItemGroup>
 
 </Project>

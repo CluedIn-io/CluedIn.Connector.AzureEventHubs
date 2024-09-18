@@ -56,7 +56,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Connector.AzureEventHub.Int
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connector.DataActivator", "src\Connector.DataActivator\Connector.DataActivator.csproj", "{28A28F1A-92D4-4AAC-AFD9-529EEFA5CEE3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connector.RealTimeIntelligence", "Connector.RealTimeIntelligence\Connector.RealTimeIntelligence.csproj", "{364F3946-E08A-4FAA-A887-DE2E0451C058}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connector.RealTimeIntelligence", "src\Connector.RealTimeIntelligence\Connector.RealTimeIntelligence.csproj", "{364F3946-E08A-4FAA-A887-DE2E0451C058}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
