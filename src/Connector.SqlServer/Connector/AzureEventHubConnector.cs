@@ -204,7 +204,16 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
             var configurations = new AzureEventHubConnectorJobData(config.Authentication.ToDictionary(x => x.Key, x => x.Value));
 
-            await _buffer.Add(configurations, eventData);
+            try
+            {
+                await _buffer.Add(configurations, eventData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[AzureEventHub] {message}", ex.Message);
+
+                return SaveResult.ReQueue;
+            }
 
             return new SaveResult(SaveResultState.Success);
         }
