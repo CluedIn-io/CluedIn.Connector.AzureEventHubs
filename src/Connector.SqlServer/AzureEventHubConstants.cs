@@ -37,21 +37,35 @@ namespace CluedIn.Connector.AzureEventHub
 
         public static AuthMethods AuthMethods = new AuthMethods
         {
-            token = new Control[]
+            Token = new Control[]
             {
                 new Control
                 {
-                    name = KeyName.ConnectionString,
-                    displayName = "Connection String",
-                    type = "input",
-                    isRequired = true
+                    Name = KeyName.ConnectionString,
+                    DisplayName = "Connection String",
+                    Type = "input",
+                    IsRequired = true,
+                    ValidationRules = new List<Dictionary<string, string>>()
+                    {
+                        new() {
+                            { "regex", "\\s" },
+                            { "message", "Spaces are not allowed" }
+                        }
+                    },
                 },
                 new Control
                 {
-                    name = KeyName.Name,
-                    displayName = "Name",
-                    type = "input",
-                    isRequired = true
+                    Name = KeyName.Name,
+                    DisplayName = "Name",
+                    Type = "input",
+                    IsRequired = true,
+                    ValidationRules = new List<Dictionary<string, string>>()
+                    {
+                        new() {
+                            { "regex", "\\s" },
+                            { "message", "Spaces are not allowed" }
+                        }
+                    },
                 }
             }
         };
