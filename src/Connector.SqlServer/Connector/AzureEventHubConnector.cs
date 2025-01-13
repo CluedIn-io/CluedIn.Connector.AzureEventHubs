@@ -182,6 +182,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 var dataWrapper = new Dictionary<string, object>
                 {
                     { "TimeStamp", _clockService.Now },
+                    { "Epoch", _clockService.Now.ToUnixTimeSeconds() },
                     { "VersionChangeType", connectorEntityData.ChangeType.ToString() },
                     { "Data", data }
                 };

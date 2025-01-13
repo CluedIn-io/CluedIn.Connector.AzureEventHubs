@@ -198,6 +198,7 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             {
                 receivedBody.Should().Be($@"{{
   ""TimeStamp"": ""2023-05-15T09:17:00+00:00"",
+  ""Epoch"": 1684142220,
   ""VersionChangeType"": ""Changed"",
   ""Data"": {{
     ""user.lastName"": ""Picard"",
