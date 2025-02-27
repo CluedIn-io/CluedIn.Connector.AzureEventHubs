@@ -56,7 +56,7 @@ namespace CluedIn.Connector.AzureEventHub
                 new Control
                 {
                     Name = KeyName.Name,
-                    DisplayName = "Name",
+                    DisplayName = "Event Hub Name",
                     Type = "input",
                     IsRequired = true,
                     ValidationRules = new List<Dictionary<string, string>>()
