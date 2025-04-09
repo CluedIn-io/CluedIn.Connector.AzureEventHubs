@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Azure.Messaging.EventHubs;
 using CluedIn.Core;
 using CluedIn.Core.Crawling;
 using CluedIn.Core.Data.Relational;
@@ -99,7 +100,27 @@ namespace CluedIn.Connector.AzureEventHub
                     "Wrong CrawlJobData type", nameof(jobData));
             }
 
-            var accountId = $"{result.Name}.{result.ConnectionString}";
+            var parts = new List<string>();
+            EventHubsConnectionStringProperties properties;
+
+            try
+            {
+                properties = EventHubsConnectionStringProperties.Parse(result.ConnectionString);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException("Invalid connection string", ex);
+            }
+
+            parts.Add(properties.FullyQualifiedNamespace);
+            if (!string.IsNullOrWhiteSpace(properties.SharedAccessKeyName))
+            {
+                parts.Add(properties.SharedAccessKeyName);
+            }
+
+            parts.Add(!string.IsNullOrWhiteSpace(result.Name) ? result.Name : result.ConnectionString);
+
+            var accountId = string.Join(" - ", parts);
 
             return Task.FromResult(new AccountInformation(accountId, $"{accountId}"));
         }
