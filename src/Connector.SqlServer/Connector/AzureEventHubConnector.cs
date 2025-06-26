@@ -125,16 +125,28 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         public override async Task<ConnectionVerificationResult> VerifyConnection(ExecutionContext executionContext, IReadOnlyDictionary<string, object> config)
         {
-            var configuration = new AzureEventHubConnectorJobData(config.ToDictionary(x => x.Key, x => x.Value));
-
-            await using (var client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name))
+            try
             {
-                //this is to validate if it has a valid 'Event Hub Name'
-                await client.GetEventHubPropertiesAsync();
-                await client.CloseAsync();
-            }
+                var configuration = new AzureEventHubConnectorJobData(config.ToDictionary(x => x.Key, x => x.Value));
 
-            return new ConnectionVerificationResult(true);
+                await using (var client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name))
+                {
+                    //this is to validate if it has a valid 'Event Hub Name'
+                    await client.GetEventHubPropertiesAsync();
+                    await client.CloseAsync();
+                }
+
+                return new ConnectionVerificationResult(true);
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("The connection string could not be parsed") || ex.Message.Contains("No such host is known") || ex.Message.Contains("InvalidSignature") || ex.Message.Contains("The connection string used for an Event Hub client must specify") || ex.Message.Contains("Index was outside the bounds of the array"))
+                {
+                    return new ConnectionVerificationResult(false, $"Invalid connection string: {ex.Message}");
+                }
+
+                return ex.Message.Contains("The path to an Event Hub may be specified as part of the connection string or as a separate value, but not both") ? new ConnectionVerificationResult(false, $"Invalid event hub name: {ex.Message}") : new ConnectionVerificationResult(false, ex.Message);
+            }
         }
 
         public override Task VerifyExistingContainer(ExecutionContext executionContext, IReadOnlyStreamModel streamModel)
