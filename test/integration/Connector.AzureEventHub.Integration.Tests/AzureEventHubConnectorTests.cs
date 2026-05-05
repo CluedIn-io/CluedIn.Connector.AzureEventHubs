@@ -20,7 +20,6 @@ using CluedIn.Core.Streams.Models;
 using FluentAssertions;
 using Moq;
 using Xunit;
-using Xunit.Abstractions;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
 
 namespace CluedIn.Connector.AzureEventHub.Integration.Tests
