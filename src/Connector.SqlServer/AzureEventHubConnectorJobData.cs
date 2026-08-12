@@ -17,8 +17,9 @@ namespace CluedIn.Connector.AzureEventHub
             Name = GetValue<string>(configuration, AzureEventHubConstants.KeyName.Name);
             CombineMessages = GetBool(configuration, AzureEventHubConstants.KeyName.CombineMessages, false);
 
-            // Clamped to DefaultFlushSize: batching can only make combined messages smaller than a full buffer
-            // flush, never larger - see the comment on the buffer's construction in AzureEventHubConnector.
+            // Clamped to DefaultFlushSize, the buffer's ceiling (a single flush can never exceed it, though it
+            // may be less - see AzureEventHubConnector's constructor comment and Buffer.AutoAdjustMaxSize), so
+            // batching can only make combined messages smaller than the buffer would otherwise send, never larger.
             BatchSize = Math.Clamp(
                 GetPositiveInt(configuration, AzureEventHubConstants.KeyName.BatchSize, AzureEventHubConstants.DefaultBatchSize),
                 AzureEventHubConstants.MinBatchSize,

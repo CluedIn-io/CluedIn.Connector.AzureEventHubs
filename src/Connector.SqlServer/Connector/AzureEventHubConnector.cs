@@ -33,7 +33,10 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             // Buffer<T>.Add blocks the caller (a RabbitMQ message handler) until its item is flushed, so the
             // number of concurrently in-flight adds is capped by RabbitMQ's prefetch count (default 50) - not by
-            // this buffer. This size must stay fixed at/below that prefetch count: if it could grow past it, the
+            // this buffer. This value is the buffer's *ceiling*: it sizes Buffer<T>'s internal semaphores/arrays
+            // once at construction and never grows past it, though Buffer<T>.AutoAdjustMaxSize can shrink the
+            // effective per-flush trigger below it (and back up) at runtime under sustained low throughput - see
+            // that method. The ceiling itself must stay at/below the prefetch count: if it could exceed it, the
             // buffer could never fill by count (no 51st concurrent caller could ever arrive) and every flush would
             // fall back to the 10s idle timeout, collapsing throughput. BatchSize (see Flush) only subdivides
             // what this buffer already collected, so it can be configured independently without this risk.
@@ -84,10 +87,12 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             }
         }
 
-        // Subdivides one flush's worth of records (at most AzureEventHubConstants.DefaultFlushSize, per the
-        // buffer's fixed size) into groups of at most batchSize, further split if a group's combined byte size
-        // would exceed the Event Hub's max message size. batchSize is clamped <= DefaultFlushSize by JobData,
-        // so it can only ever make combined messages smaller than a full flush, never larger.
+        // Subdivides one flush's worth of records - at most AzureEventHubConstants.DefaultFlushSize, though it
+        // may be fewer if Buffer<T>.AutoAdjustMaxSize has shrunk the flush trigger under low throughput - into
+        // groups of at most batchSize, further split if a group's combined byte size would exceed the Event
+        // Hub's max message size. batchSize is clamped <= DefaultFlushSize by JobData, so it can only ever make
+        // combined messages smaller than a full flush would allow, never larger; fewer items than batchSize
+        // just yields one smaller group, which is a no-op for correctness.
         private static IEnumerable<EventData[]> Chunk(EventData[] items, int batchSize)
         {
             var chunk = new List<EventData>(Math.Min(batchSize, items.Length));
