@@ -93,7 +93,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         // Hub's max message size. batchSize is clamped <= DefaultFlushSize by JobData, so it can only ever make
         // combined messages smaller than a full flush would allow, never larger; fewer items than batchSize
         // just yields one smaller group, which is a no-op for correctness.
-        private static IEnumerable<EventData[]> Chunk(EventData[] items, int batchSize)
+        internal static IEnumerable<EventData[]> Chunk(EventData[] items, int batchSize)
         {
             var chunk = new List<EventData>(Math.Min(batchSize, items.Length));
             var chunkBytes = 0;
@@ -121,7 +121,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
         // Combines the raw JSON bodies of multiple already-serialized EventData items into a single
         // message body, wrapped as { "count": N, "messages": [ ... ] }, without re-parsing each body.
-        private static EventData CombineEventData(EventData[] items)
+        internal static EventData CombineEventData(EventData[] items)
         {
             var sb = new StringBuilder();
             sb.Append("{\"count\":").Append(items.Length).Append(",\"messages\":[");
