@@ -31,7 +31,16 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _clockService = clockService;
 
-            _buffer = new PartitionedBuffer<AzureEventHubConnectorJobData, EventData>(50, 10000, Flush);
+            // Buffer<T>.Add blocks the caller (a RabbitMQ message handler) until its item is flushed, so the
+            // number of concurrently in-flight adds is capped by RabbitMQ's prefetch count (default 50) - not by
+            // this buffer. This size must stay fixed at/below that prefetch count: if it could grow past it, the
+            // buffer could never fill by count (no 51st concurrent caller could ever arrive) and every flush would
+            // fall back to the 10s idle timeout, collapsing throughput. BatchSize (see Flush) only subdivides
+            // what this buffer already collected, so it can be configured independently without this risk.
+            _buffer = new PartitionedBuffer<AzureEventHubConnectorJobData, EventData>(
+                AzureEventHubConstants.DefaultFlushSize,
+                AzureEventHubConstants.FlushTimeoutMilliseconds,
+                Flush);
 
             _logger.LogInformation("[AzureEventHub] AzureEventHubConnector Initialized");
         }
@@ -60,15 +69,71 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 _cache.Add(configuration, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
             }
 
+            var toSend = configuration.CombineMessages
+                ? Chunk(eventData, configuration.BatchSize).Select(CombineEventData).ToArray()
+                : eventData;
+
             try
             {
-                await client.SendAsync(eventData);
+                await client.SendAsync(toSend);
             }
             catch
             {
                 _cache.Remove(configuration);
                 throw;
             }
+        }
+
+        // Subdivides one flush's worth of records (at most AzureEventHubConstants.DefaultFlushSize, per the
+        // buffer's fixed size) into groups of at most batchSize, further split if a group's combined byte size
+        // would exceed the Event Hub's max message size. batchSize is clamped <= DefaultFlushSize by JobData,
+        // so it can only ever make combined messages smaller than a full flush, never larger.
+        private static IEnumerable<EventData[]> Chunk(EventData[] items, int batchSize)
+        {
+            var chunk = new List<EventData>(Math.Min(batchSize, items.Length));
+            var chunkBytes = 0;
+
+            foreach (var item in items)
+            {
+                var itemBytes = item.Body.ToArray().Length;
+
+                if (chunk.Count > 0 && (chunk.Count >= batchSize || chunkBytes + itemBytes > AzureEventHubConstants.MaxCombinedMessageBytes))
+                {
+                    yield return chunk.ToArray();
+                    chunk = new List<EventData>(Math.Min(batchSize, items.Length));
+                    chunkBytes = 0;
+                }
+
+                chunk.Add(item);
+                chunkBytes += itemBytes;
+            }
+
+            if (chunk.Count > 0)
+            {
+                yield return chunk.ToArray();
+            }
+        }
+
+        // Combines the raw JSON bodies of multiple already-serialized EventData items into a single
+        // message body, wrapped as { "count": N, "messages": [ ... ] }, without re-parsing each body.
+        private static EventData CombineEventData(EventData[] items)
+        {
+            var sb = new StringBuilder();
+            sb.Append("{\"count\":").Append(items.Length).Append(",\"messages\":[");
+
+            for (var i = 0; i < items.Length; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+
+                sb.Append(Encoding.UTF8.GetString(items[i].Body.ToArray()));
+            }
+
+            sb.Append("]}");
+
+            return new EventData(Encoding.UTF8.GetBytes(sb.ToString()));
         }
 
         public override async Task CreateContainer(ExecutionContext executionContext, Guid connectorProviderDefinitionId, IReadOnlyCreateContainerModelV2 model)

@@ -11,7 +11,18 @@ namespace CluedIn.Connector.AzureEventHub
         {
             public const string ConnectionString = "connectinString";
             public const string Name = "name";
+            public const string CombineMessages = "combineMessages";
+            public const string BatchSize = "batchSize";
         }
+
+        // Some Event Hub tiers cap message size at 1 MB; this leaves headroom for the JSON wrapper/encoding overhead.
+        public const int MaxCombinedMessageBytes = 800_000;
+        public const int DefaultBatchSize = 20;
+        public const int MinBatchSize = 1;
+        // Fixed buffer flush size/cadence - tied to the platform's default RabbitMQ prefetch count, see the
+        // comment in AzureEventHubConnector's constructor. BatchSize is clamped to this as an upper bound.
+        public const int DefaultFlushSize = 50;
+        public const int FlushTimeoutMilliseconds = 10000;
 
         public const string ConnectorName = "AzureEventConnector";
         public const string ConnectorComponentName = "AzureEventConnector";
@@ -72,7 +83,27 @@ namespace CluedIn.Connector.AzureEventHub
 
         public static IEnumerable<Control> Properties = new List<Control>
         {
-
+            new Control
+            {
+                Name = KeyName.CombineMessages,
+                DisplayName = "Combine multiple records into a single Event Hub message (true/false, default false)",
+                Type = "input",
+                IsRequired = false,
+            },
+            new Control
+            {
+                Name = KeyName.BatchSize,
+                DisplayName = $"Batch size - records per combined message, 1-{DefaultFlushSize} (default {DefaultBatchSize})",
+                Type = "input",
+                IsRequired = false,
+                ValidationRules = new List<Dictionary<string, string>>()
+                {
+                    new() {
+                        { "regex", "^[0-9]*$" },
+                        { "message", "Must be a whole number" }
+                    }
+                },
+            },
         };
 
         public static readonly ComponentEmailDetails ComponentEmailDetails = new ComponentEmailDetails {

@@ -15,15 +15,66 @@ namespace CluedIn.Connector.AzureEventHub
 
             ConnectionString = GetValue<string>(configuration, AzureEventHubConstants.KeyName.ConnectionString);
             Name = GetValue<string>(configuration, AzureEventHubConstants.KeyName.Name);
+            CombineMessages = GetBool(configuration, AzureEventHubConstants.KeyName.CombineMessages, false);
+
+            // Clamped to DefaultFlushSize: batching can only make combined messages smaller than a full buffer
+            // flush, never larger - see the comment on the buffer's construction in AzureEventHubConnector.
+            BatchSize = Math.Clamp(
+                GetPositiveInt(configuration, AzureEventHubConstants.KeyName.BatchSize, AzureEventHubConstants.DefaultBatchSize),
+                AzureEventHubConstants.MinBatchSize,
+                AzureEventHubConstants.DefaultFlushSize);
         }
 
         public string ConnectionString { get; set; }
 
         public string Name { get; set; }
 
+        public bool CombineMessages { get; set; }
+
+        public int BatchSize { get; set; }
+
+        private static bool GetBool(IDictionary<string, object> configuration, string key, bool defaultValue)
+        {
+            if (configuration.TryGetValue(key, out var raw) && raw != null)
+            {
+                if (raw is bool b)
+                {
+                    return b;
+                }
+
+                if (bool.TryParse(raw.ToString(), out var parsed))
+                {
+                    return parsed;
+                }
+            }
+
+            return defaultValue;
+        }
+
+        private static int GetPositiveInt(IDictionary<string, object> configuration, string key, int defaultValue)
+        {
+            if (configuration.TryGetValue(key, out var raw) && raw != null)
+            {
+                if (raw is int i && i > 0)
+                {
+                    return i;
+                }
+
+                if (int.TryParse(raw.ToString(), out var parsed) && parsed > 0)
+                {
+                    return parsed;
+                }
+            }
+
+            return defaultValue;
+        }
+
         protected bool Equals(AzureEventHubConnectorJobData other)
         {
-            return ConnectionString == other.ConnectionString && Name == other.Name;
+            return ConnectionString == other.ConnectionString
+                && Name == other.Name
+                && CombineMessages == other.CombineMessages
+                && BatchSize == other.BatchSize;
         }
 
         public override bool Equals(object obj)
@@ -48,14 +99,16 @@ namespace CluedIn.Connector.AzureEventHub
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(ConnectionString, Name);
+            return HashCode.Combine(ConnectionString, Name, CombineMessages, BatchSize);
         }
 
         public IDictionary<string, object> ToDictionary()
         {
             return new Dictionary<string, object> {
                 { AzureEventHubConstants.KeyName.ConnectionString, ConnectionString },
-                { AzureEventHubConstants.KeyName.Name, Name }
+                { AzureEventHubConstants.KeyName.Name, Name },
+                { AzureEventHubConstants.KeyName.CombineMessages, CombineMessages },
+                { AzureEventHubConstants.KeyName.BatchSize, BatchSize }
             };
         }
     }
