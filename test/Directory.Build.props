@@ -8,10 +8,9 @@
          scoped to test projects only via this file rather than the shipped connector assembly under src/. -->
     <LangVersion>11</LangVersion>
     <!-- CI's UseDotNet@2 step installs only the single SDK/runtime pinned in ../global.json (now 8.0.100, bumped
-         for the LangVersion 11 requirement above) - it does not also install the net6.0 runtime these test
-         projects target, so the compiled net6.0 test binaries can't otherwise be *run* by dotnet test/vstest
-         (confirmed via a CI failure: "Framework: 'Microsoft.NETCore.App', version '6.0.0' ... found: 8.0.30").
-         This lets the test host roll forward to the installed .NET 8 runtime at execution time instead. -->
+         for the LangVersion 11 requirement above), not the net6.0 runtime these test projects target - without
+         this, the compiled net6.0 test binaries can't be run by dotnet test/vstest. Lets the test host roll
+         forward to the installed .NET 8 runtime at execution time instead. -->
     <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
 
