@@ -19,7 +19,6 @@ using CluedIn.Core.Data.Vocabularies;
 using CluedIn.Core.Streams.Models;
 using FluentAssertions;
 using Moq;
-using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
@@ -337,15 +336,45 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
             }
 
             var receivedBody = Encoding.UTF8.GetString(eventData.Body.ToArray());
-            var parsed = JObject.Parse(receivedBody);
 
-            ((int)parsed["count"]).Should().Be(batchSize);
-
-            var messages = (JArray)parsed["messages"];
-            messages.Should().HaveCount(batchSize);
-
-            var receivedIds = messages.Select(m => (string)m["Id"]).ToArray();
-            receivedIds.Should().BeEquivalentTo(entityIds);
+            // Asserted as one raw literal (rather than parsing the JSON and checking pieces of it) so the whole
+            // wire message is visible here and any future change to it shows up as an obvious diff in this test.
+            // This is 3 hardcoded record blocks because batchSize is fixed at 3 above - if batchSize changes,
+            // this literal needs a matching number of blocks added/removed by hand.
+            receivedBody.Should().Be($@"{{""count"":{batchSize},""messages"":[{{
+  ""user.lastName"": ""Picard"",
+  ""Name"": ""Jean Luc Picard"",
+  ""Id"": ""{entityIds[0]}"",
+  ""PersistHash"": ""1lzghdhhgqlnucj078/77q=="",
+  ""OriginEntityCode"": ""/Person#Acceptance:{entityIds[0]}"",
+  ""EntityType"": ""/Person"",
+  ""Codes"": [
+    ""/Person#Acceptance:{entityIds[0]}""
+  ],
+  ""ChangeType"": ""Changed""
+}},{{
+  ""user.lastName"": ""Picard"",
+  ""Name"": ""Jean Luc Picard"",
+  ""Id"": ""{entityIds[1]}"",
+  ""PersistHash"": ""1lzghdhhgqlnucj078/77q=="",
+  ""OriginEntityCode"": ""/Person#Acceptance:{entityIds[1]}"",
+  ""EntityType"": ""/Person"",
+  ""Codes"": [
+    ""/Person#Acceptance:{entityIds[1]}""
+  ],
+  ""ChangeType"": ""Changed""
+}},{{
+  ""user.lastName"": ""Picard"",
+  ""Name"": ""Jean Luc Picard"",
+  ""Id"": ""{entityIds[2]}"",
+  ""PersistHash"": ""1lzghdhhgqlnucj078/77q=="",
+  ""OriginEntityCode"": ""/Person#Acceptance:{entityIds[2]}"",
+  ""EntityType"": ""/Person"",
+  ""Codes"": [
+    ""/Person#Acceptance:{entityIds[2]}""
+  ],
+  ""ChangeType"": ""Changed""
+}}]}}");
         }
     }
 }
