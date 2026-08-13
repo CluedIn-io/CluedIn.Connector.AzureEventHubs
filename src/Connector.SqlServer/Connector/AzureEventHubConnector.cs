@@ -72,13 +72,23 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 _cache.Add(configuration, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
             }
 
-            var toSend = configuration.CombineMessages
-                ? Chunk(eventData, configuration.BatchSize).Select(CombineEventData).ToArray()
-                : eventData;
-
             try
             {
-                await client.SendAsync(toSend);
+                if (configuration.CombineMessages)
+                {
+                    // Each chunk must be its own Event Hub batch. Collecting every chunk into one array and
+                    // handing it to a single SendAsync call would pack multiple already-near-the-cap combined
+                    // messages into one physical batch, which can exceed Event Hub's real per-batch size limit
+                    // even though every individual chunk stayed under MaxCombinedMessageBytes.
+                    foreach (var chunk in Chunk(eventData, configuration.BatchSize))
+                    {
+                        await client.SendAsync(new[] { CombineEventData(chunk) });
+                    }
+                }
+                else
+                {
+                    await client.SendAsync(eventData);
+                }
             }
             catch
             {
