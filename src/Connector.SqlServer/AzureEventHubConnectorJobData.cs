@@ -34,40 +34,42 @@ namespace CluedIn.Connector.AzureEventHub
 
         public int BatchSize { get; set; }
 
+        // Deliberately not the base class's GetValue<T>: that helper throws on a value it can't convert (e.g. an
+        // empty or non-numeric string), whereas these two need to fall back to defaultValue on anything they
+        // can't parse - the exact format the UI posts these two fields in wasn't confirmed when they were added.
+        private static bool TryGetRawConfigValue(IDictionary<string, object> configuration, string key, out object raw)
+        {
+            return configuration.TryGetValue(key, out raw) && raw != null;
+        }
+
         private static bool GetBool(IDictionary<string, object> configuration, string key, bool defaultValue)
         {
-            if (configuration.TryGetValue(key, out var raw) && raw != null)
+            if (!TryGetRawConfigValue(configuration, key, out var raw))
             {
-                if (raw is bool b)
-                {
-                    return b;
-                }
-
-                if (bool.TryParse(raw.ToString(), out var parsed))
-                {
-                    return parsed;
-                }
+                return defaultValue;
             }
 
-            return defaultValue;
+            if (raw is bool b)
+            {
+                return b;
+            }
+
+            return bool.TryParse(raw.ToString(), out var parsed) ? parsed : defaultValue;
         }
 
         private static int GetPositiveInt(IDictionary<string, object> configuration, string key, int defaultValue)
         {
-            if (configuration.TryGetValue(key, out var raw) && raw != null)
+            if (!TryGetRawConfigValue(configuration, key, out var raw))
             {
-                if (raw is int i && i > 0)
-                {
-                    return i;
-                }
-
-                if (int.TryParse(raw.ToString(), out var parsed) && parsed > 0)
-                {
-                    return parsed;
-                }
+                return defaultValue;
             }
 
-            return defaultValue;
+            if (raw is int i && i > 0)
+            {
+                return i;
+            }
+
+            return int.TryParse(raw.ToString(), out var parsed) && parsed > 0 ? parsed : defaultValue;
         }
 
         protected bool Equals(AzureEventHubConnectorJobData other)
