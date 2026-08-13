@@ -119,7 +119,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             foreach (var item in items)
             {
-                var itemBytes = item.Body.ToArray().Length;
+                var itemBytes = item.Body.Length;
 
                 if (chunk.Count > 0 && (chunk.Count >= batchSize || chunkBytes + itemBytes > AzureEventHubConstants.MaxCombinedMessageBytes))
                 {
@@ -152,7 +152,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                     sb.Append(',');
                 }
 
-                sb.Append(Encoding.UTF8.GetString(items[i].Body.ToArray()));
+                sb.Append(Encoding.UTF8.GetString(items[i].Body.Span));
             }
 
             sb.Append("]}");
