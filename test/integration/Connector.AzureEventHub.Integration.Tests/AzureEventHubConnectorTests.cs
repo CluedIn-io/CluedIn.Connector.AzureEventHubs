@@ -19,6 +19,8 @@ using CluedIn.Core.Data.Vocabularies;
 using CluedIn.Core.Streams.Models;
 using FluentAssertions;
 using Moq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using ExecutionContext = CluedIn.Core.ExecutionContext;
@@ -337,48 +339,56 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
 
             var receivedBody = Encoding.UTF8.GetString(eventData.Body.ToArray());
 
-            // Asserted as one raw literal (rather than parsing the JSON and checking pieces of it) so the whole
-            // wire message is visible here and any future change to it shows up as an obvious diff in this test.
-            // This is 3 hardcoded record blocks because batchSize is fixed at 3 above - if batchSize changes,
-            // this literal needs a matching number of blocks added/removed by hand.
-            // $$""" ... """ - a raw string literal (no quote-escaping) using $$ so interpolation needs {{expr}},
-            // leaving the JSON's own single { and } braces literal with no escaping needed either.
-            receivedBody.Should().Be($$"""
-{"count":{{batchSize}},"messages":[{
-  "user.lastName": "Picard",
-  "Name": "Jean Luc Picard",
-  "Id": "{{entityIds[0]}}",
-  "PersistHash": "1lzghdhhgqlnucj078/77q==",
-  "OriginEntityCode": "/Person#Acceptance:{{entityIds[0]}}",
-  "EntityType": "/Person",
-  "Codes": [
-    "/Person#Acceptance:{{entityIds[0]}}"
-  ],
-  "ChangeType": "Changed"
-},{
-  "user.lastName": "Picard",
-  "Name": "Jean Luc Picard",
-  "Id": "{{entityIds[1]}}",
-  "PersistHash": "1lzghdhhgqlnucj078/77q==",
-  "OriginEntityCode": "/Person#Acceptance:{{entityIds[1]}}",
-  "EntityType": "/Person",
-  "Codes": [
-    "/Person#Acceptance:{{entityIds[1]}}"
-  ],
-  "ChangeType": "Changed"
-},{
-  "user.lastName": "Picard",
-  "Name": "Jean Luc Picard",
-  "Id": "{{entityIds[2]}}",
-  "PersistHash": "1lzghdhhgqlnucj078/77q==",
-  "OriginEntityCode": "/Person#Acceptance:{{entityIds[2]}}",
-  "EntityType": "/Person",
-  "Codes": [
-    "/Person#Acceptance:{{entityIds[2]}}"
-  ],
-  "ChangeType": "Changed"
-}]}
-""");
+            // Reformatted through JToken before comparing, rather than asserting the raw wire bytes: gives the
+            // literal below consistent, readable indentation, and makes the assertion tolerant of inconsequential
+            // whitespace differences (e.g. a Json.NET version/setting change) while still failing on any real
+            // structural or content change.
+            var formattedBody = JToken.Parse(receivedBody).ToString(Formatting.Indented);
+
+            formattedBody.Should().Be(
+                $$"""
+                  {
+                    "count": {{batchSize}},
+                    "messages": [
+                      {
+                        "user.lastName": "Picard",
+                        "Name": "Jean Luc Picard",
+                        "Id": "{{entityIds[0]}}",
+                        "PersistHash": "1lzghdhhgqlnucj078/77q==",
+                        "OriginEntityCode": "/Person#Acceptance:{{entityIds[0]}}",
+                        "EntityType": "/Person",
+                        "Codes": [
+                          "/Person#Acceptance:{{entityIds[0]}}"
+                        ],
+                        "ChangeType": "Changed"
+                      },
+                      {
+                        "user.lastName": "Picard",
+                        "Name": "Jean Luc Picard",
+                        "Id": "{{entityIds[1]}}",
+                        "PersistHash": "1lzghdhhgqlnucj078/77q==",
+                        "OriginEntityCode": "/Person#Acceptance:{{entityIds[1]}}",
+                        "EntityType": "/Person",
+                        "Codes": [
+                          "/Person#Acceptance:{{entityIds[1]}}"
+                        ],
+                        "ChangeType": "Changed"
+                      },
+                      {
+                        "user.lastName": "Picard",
+                        "Name": "Jean Luc Picard",
+                        "Id": "{{entityIds[2]}}",
+                        "PersistHash": "1lzghdhhgqlnucj078/77q==",
+                        "OriginEntityCode": "/Person#Acceptance:{{entityIds[2]}}",
+                        "EntityType": "/Person",
+                        "Codes": [
+                          "/Person#Acceptance:{{entityIds[2]}}"
+                        ],
+                        "ChangeType": "Changed"
+                      }
+                    ]
+                  }
+                  """);
         }
     }
 }
