@@ -53,7 +53,14 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             _buffer.Dispose();
         }
 
-        private readonly Dictionary<AzureEventHubConnectorJobData, EventHubProducerClient> _cache = new Dictionary<AzureEventHubConnectorJobData, EventHubProducerClient>();
+        // Keyed by (ConnectionString, Name) rather than the full AzureEventHubConnectorJobData: those two fields
+        // are all that determine which physical Event Hub connection/producer client is needed. JobData's
+        // Equals/GetHashCode also include CombineMessages/BatchSize (it doubles as the buffer partition key,
+        // where that inclusion is required so setting changes get picked up). Keying this cache on the full
+        // JobData instead would mean routinely tuning BatchSize/CombineMessages leaks a producer client - and
+        // its underlying AMQP connection - on every change, since nothing here ever evicts or disposes a
+        // superseded cache entry.
+        private readonly Dictionary<(string ConnectionString, string Name), EventHubProducerClient> _cache = new();
 
         private async Task Flush(AzureEventHubConnectorJobData configuration, EventData[] eventData)
         {
@@ -67,9 +74,11 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 return;
             }
 
-            if (!_cache.TryGetValue(configuration, out var client))
+            var clientKey = (configuration.ConnectionString, configuration.Name);
+
+            if (!_cache.TryGetValue(clientKey, out var client))
             {
-                _cache.Add(configuration, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
+                _cache.Add(clientKey, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
             }
 
             try
@@ -92,7 +101,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             }
             catch
             {
-                _cache.Remove(configuration);
+                _cache.Remove(clientKey);
                 throw;
             }
         }
