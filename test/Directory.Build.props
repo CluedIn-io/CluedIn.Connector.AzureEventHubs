@@ -3,6 +3,10 @@
 
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
+    <!-- Raised from the repo-wide default (C# 10, implied by net6.0) so test assertions can use raw string
+         literals ("""..."""). Compile-time only - doesn't affect the net6.0 target or runtime behavior, and is
+         scoped to test projects only via this file rather than the shipped connector assembly under src/. -->
+    <LangVersion>11</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
