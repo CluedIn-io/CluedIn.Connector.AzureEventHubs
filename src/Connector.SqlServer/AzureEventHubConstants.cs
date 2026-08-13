@@ -87,7 +87,7 @@ namespace CluedIn.Connector.AzureEventHub
             {
                 Name = KeyName.CombineMessages,
                 DisplayName = "Combine multiple records into a single Event Hub message (true/false, default false)",
-                Type = "input",
+                Type = "checkbox",
                 IsRequired = false,
             },
             new Control
