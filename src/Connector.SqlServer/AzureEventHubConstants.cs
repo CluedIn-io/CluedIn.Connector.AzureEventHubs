@@ -94,7 +94,8 @@ namespace CluedIn.Connector.AzureEventHub
             new Control
             {
                 Name = KeyName.BatchSize,
-                DisplayName = $"Batch size - records per combined message, 1-{DefaultFlushSize} (default {DefaultBatchSize})",
+                DisplayName = "Batch size",
+                Help = $"Records per combined message, 1-{DefaultFlushSize} (default {DefaultBatchSize}). Only applies when combining messages is enabled.",
                 Type = "input",
                 IsRequired = false,
                 ValidationRules = new List<Dictionary<string, string>>()
