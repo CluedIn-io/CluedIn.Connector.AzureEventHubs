@@ -99,8 +99,8 @@ namespace CluedIn.Connector.AzureEventHub
                 ValidationRules = new List<Dictionary<string, string>>()
                 {
                     new() {
-                        { "regex", "^[0-9]*$" },
-                        { "message", "Must be a whole number" }
+                        { "regex", "^[1-9][0-9]*$" },
+                        { "message", "Must be a whole number greater than zero" }
                     }
                 },
             },
