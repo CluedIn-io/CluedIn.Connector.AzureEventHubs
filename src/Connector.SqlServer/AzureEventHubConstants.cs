@@ -87,7 +87,7 @@ namespace CluedIn.Connector.AzureEventHub
             {
                 Name = KeyName.CombineMessages,
                 DisplayName = "Combine multiple records into a single Event Hub message",
-                Help = "When enabled, records are combined into a single message wrapped as {\"count\", \"messages\"} instead of being sent individually - make sure your downstream consumer can parse this format.",
+                Help = "When enabled, records are combined into a single message wrapped as {\"count\": N, \"messages\": [...]} instead of being sent individually - make sure your downstream consumer can parse this format.",
                 Type = "checkbox",
                 IsRequired = false,
             },
