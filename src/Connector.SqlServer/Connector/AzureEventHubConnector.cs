@@ -102,6 +102,19 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             catch
             {
                 _cache.Remove(clientKey);
+
+                // The client that just failed is evicted so a fresh one is created next time - but leaving it
+                // open here would leak its underlying AMQP connection, since nothing else ever closes it. Best
+                // effort: a failure to close must not shadow the original send failure being rethrown below.
+                try
+                {
+                    await client.CloseAsync();
+                }
+                catch
+                {
+                    // ignored - the send failure below is the one that matters
+                }
+
                 throw;
             }
         }
