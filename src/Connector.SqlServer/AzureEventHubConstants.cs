@@ -87,7 +87,7 @@ namespace CluedIn.Connector.AzureEventHub
             {
                 Name = KeyName.CombineMessages,
                 DisplayName = "Combine multiple records into a single Event Hub message",
-                Help = "When enabled, records are combined into a single message wrapped as {\"count\", \"messages\"} instead of being sent individually - make sure your downstream consumer can parse this format.",
+                Help = "When enabled, records are combined into a single message wrapped as {\"count\": N, \"messages\": [...]} instead of being sent individually - make sure your downstream consumer can parse this format.",
                 Type = "checkbox",
                 IsRequired = false,
             },
@@ -98,11 +98,13 @@ namespace CluedIn.Connector.AzureEventHub
                 Help = $"Records per combined message, 1-{DefaultFlushSize} (default {DefaultBatchSize}). Only applies when combining messages is enabled.",
                 Type = "input",
                 IsRequired = false,
+                // "[1-4][0-9]" only covers 10-49 - hand-built for DefaultFlushSize=50 specifically, not derived
+                // from it. If DefaultFlushSize ever changes, this pattern needs updating to match.
                 ValidationRules = new List<Dictionary<string, string>>()
                 {
                     new() {
-                        { "regex", "^[1-9][0-9]*$" },
-                        { "message", "Must be a whole number greater than zero" }
+                        { "regex", $"^([1-9]|[1-4][0-9]|{DefaultFlushSize})$" },
+                        { "message", $"Must be a whole number from 1 to {DefaultFlushSize}" }
                     }
                 },
             },

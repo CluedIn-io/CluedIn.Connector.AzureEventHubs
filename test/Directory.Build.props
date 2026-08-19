@@ -3,9 +3,10 @@
 
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
-    <!-- Raised from the repo-wide default (C# 10, implied by net6.0) so test assertions can use raw string
-         literals ("""..."""). Compile-time only - doesn't affect the net6.0 target or runtime behavior, and is
-         scoped to test projects only via this file rather than the shipped connector assembly under src/. -->
+    <!-- Explicitly set to 11 so test assertions can use raw string literals ("""..."""). Without this, the
+         C# language version is whatever the SDK pinned in ../global.json defaults to for a net6.0 target, which
+         predates raw string literals. Compile-time only - doesn't affect the net6.0 target or runtime behavior,
+         and is scoped to test projects only via this file rather than the shipped connector assembly under src/. -->
     <LangVersion>11</LangVersion>
     <!-- CI's UseDotNet@2 step installs only the single SDK/runtime pinned in ../global.json (now 8.0.100, bumped
          for the LangVersion 11 requirement above), not the net6.0 runtime these test projects target - without
