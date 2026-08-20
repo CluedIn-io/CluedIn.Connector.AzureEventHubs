@@ -127,10 +127,10 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
 
             var connector = connectorMock.Object;
 
-            var client = new EventHubConsumerClient("$Default", RootConnectionString, TestEventHubName);
+            await using var client = new EventHubConsumerClient("$Default", RootConnectionString, TestEventHubName);
 
-            var hubEmptyEvent = new AutoResetEvent(false);
-            var messageReceivedEvent = new AutoResetEvent(false);
+            using var hubEmptyEvent = new AutoResetEvent(false);
+            using var messageReceivedEvent = new AutoResetEvent(false);
             EventData eventData = null;
 
             var _ = Task.Run(async () =>
@@ -280,10 +280,10 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
 
             var connector = connectorMock.Object;
 
-            var client = new EventHubConsumerClient("$Default", RootConnectionString, TestEventHubName);
+            await using var client = new EventHubConsumerClient("$Default", RootConnectionString, TestEventHubName);
 
-            var hubEmptyEvent = new AutoResetEvent(false);
-            var messageReceivedEvent = new AutoResetEvent(false);
+            using var hubEmptyEvent = new AutoResetEvent(false);
+            using var messageReceivedEvent = new AutoResetEvent(false);
             EventData eventData = null;
 
             var _ = Task.Run(async () =>
