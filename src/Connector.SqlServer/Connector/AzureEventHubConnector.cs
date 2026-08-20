@@ -62,6 +62,13 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         // superseded cache entry.
         private readonly Dictionary<(string ConnectionString, string Name), EventHubProducerClient> _cache = new();
 
+        // PartitionedBuffer flushes each partition independently, so Flush can run concurrently for different
+        // partitions (e.g. two connector configurations sharing this connector instance). _cache is a plain
+        // Dictionary, so concurrent reads/writes across those flushes can corrupt its internal state or throw.
+        // Guards only the dictionary access itself, never an await, so concurrent sends to different clients
+        // are unaffected.
+        private readonly object _cacheLock = new();
+
         private async Task Flush(AzureEventHubConnectorJobData configuration, EventData[] eventData)
         {
             if (eventData == null)
@@ -76,9 +83,13 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             var clientKey = (configuration.ConnectionString, configuration.Name);
 
-            if (!_cache.TryGetValue(clientKey, out var client))
+            EventHubProducerClient client;
+            lock (_cacheLock)
             {
-                _cache.Add(clientKey, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
+                if (!_cache.TryGetValue(clientKey, out client))
+                {
+                    _cache.Add(clientKey, client = new EventHubProducerClient(configuration.ConnectionString, configuration.Name));
+                }
             }
 
             try
@@ -101,7 +112,11 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             }
             catch
             {
-                _cache.Remove(clientKey);
+                lock (_cacheLock)
+                {
+                    _cache.Remove(clientKey);
+                }
+
                 throw;
             }
         }
