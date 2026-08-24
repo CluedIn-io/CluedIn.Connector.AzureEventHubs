@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,6 +22,9 @@ using Moq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
+#if !CLUEDIN_V50
+using Xunit.Abstractions;
+#endif
 using ExecutionContext = CluedIn.Core.ExecutionContext;
 
 namespace CluedIn.Connector.AzureEventHub.Integration.Tests
@@ -36,7 +39,6 @@ namespace CluedIn.Connector.AzureEventHub.Integration.Tests
         }
 
         private string RootConnectionString => Environment.GetEnvironmentVariable("EVENTHUB_ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING");
-
         private string TestEventHubConnectionString => Environment.GetEnvironmentVariable("EVENTHUB_TESTQUEUE_CONNECTIONSTRING");
 
         private string TestEventHubName => new EventHubConnection(TestEventHubConnectionString).EventHubName;
