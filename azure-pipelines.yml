@@ -1,9 +1,20 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 parameters:
-  - name: runIntegrationTests
-    displayName: Run Integration Tests
-    type: boolean
-    default: true
+  - name: pipelineTemplateRef
+    displayName: Pipeline Template Ref
+    type: string
+    default: refs/heads/feature/multi-version-packaging
+
+  # Manual, one-off check that this repo still builds and tests cleanly against a CluedIn.Core
+  # version outside multiVersionCluedInTargets below (e.g. a new release, to see if retargeting is
+  # needed) - leave blank for a normal run. Its target framework is auto-detected, not supplied
+  # here. See crawler.build.jobs.yml's probeCluedInVersion parameter for what this does: on a
+  # non-blank value, the entire normal multi-version job graph (including publish) is replaced by a
+  # single build+test job for this version, and nothing is published.
+  - name: probeCluedInVersion
+    displayName: Probe CluedIn Version (leave blank for a normal run)
+    type: string
+    default: ' ' # hack: set to space so that the devops ui doesn't show the field as required. the trim later on will convert the space to blank so that shared template works as expected
 
 trigger:
   branches:
@@ -12,12 +23,8 @@ trigger:
     - master
     - release/*
 
-pr:
-  branches:
-    include:
-    - develop
-    - master
-    - release/*
+# Perform build for a PR to any branch, as if you run PR, you most likely want CI checks.
+pr: ['*']
 
 resources:
   repositories:
@@ -25,10 +32,7 @@ resources:
       type: github
       name: CluedIn-io/AzurePipelines.Templates
       endpoint: 'CluedIn-io'
-      ref: refs/heads/refactor
-
-pool:
-  vmImage: 'windows-latest'
+      ref: ${{ parameters.pipelineTemplateRef }}
 
 variables:
   - name: testFolderPath
@@ -40,22 +44,22 @@ variables:
   - name: buildConfiguration
     value: Release
 
-steps:
-  # Configure NuGet
-  - task: NuGetAuthenticate@0
-    displayName: 'Authenticate with nuget'
-
-  - task: PowerShell@2
-    displayName: 'Set Environment variables'
-    inputs:
-      targetType: inline
-      script: |
-        Write-Host ("##vso[task.setvariable variable=EVENTHUB_ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING;]$(ROOTMANAGESHAREDACCESSKEY_CONNECTIONSTRING)")
-        Write-Host ("##vso[task.setvariable variable=EVENTHUB_TESTQUEUE_CONNECTIONSTRING;]$(TESTQUEUE_CONNECTIONSTRING)")
-
-  - template: crawler.build.yml@templates
+# jobs:, not pool:/steps: - crawler.build.jobs.yml is a jobs template, the only one with
+# multi-version support (crawler.build.yml has none). See
+# CluedIn.Enricher.RestApi/azure-pipelines.yml for the calling convention.
+jobs:
+  - template: crawler.build.jobs.yml@templates
     parameters:
+      pool:
+        vmImage: 'ubuntu-22.04'
       githubReleaseInMaster: true
       publicReleaseForMaster: true
-      executeIntegrationTests: ${{ parameters.runIntegrationTests }}
       publishCodeCoverage: true
+      useGitVersionDotNetTool: true
+      publishToDevFeed: true
+      probeCluedInVersion: ${{ trim(parameters.probeCluedInVersion) }}
+      multiVersionCluedInTargets:
+        - cluedInVersion: '4.6.0'
+        - cluedInVersion: '4.7.0'
+        - cluedInVersion: '4.8.0'
+        - cluedInVersion: '5.0.0-beta.*'
