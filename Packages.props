@@ -20,6 +20,7 @@
         MUST SPECIFY IN CSPROJ AS <PackageReference Name="<depName>" />
     -->
     <PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.12.0" Condition="!$(DefineConstants.Contains('CLUEDIN_V50'))" />
     <PackageReference Update="Azure.Messaging.EventHubs" Version="5.7.1" />
     <PackageReference Update="AutoFixture.Xunit3" Version="$(_AutoFixture)" />
     <PackageReference Update="AutoFixture.Idioms" Version="$(_AutoFixture)" />
