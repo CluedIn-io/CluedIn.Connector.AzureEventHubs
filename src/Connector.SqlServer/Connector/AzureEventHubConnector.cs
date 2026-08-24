@@ -332,7 +332,8 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
             var configuration = config.Authentication.ToDictionary(x => x.Key, x => x.Value);
-            configuration.AddRange(streamModel.ConnectorProperties);
+            if (streamModel.ConnectorProperties != null)
+                configuration.AddRange(streamModel.ConnectorProperties);
             var configurations = new AzureEventHubConnectorJobData(configuration);
 
             try
