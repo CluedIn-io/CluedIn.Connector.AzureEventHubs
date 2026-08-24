@@ -58,7 +58,7 @@ namespace CluedIn.Connector.AzureEventHub
             throw new NotImplementedException();
         }
 
-        public override Task<IDictionary<string, object>> GetHelperConfiguration(
+        public override async Task<IDictionary<string, object>> GetHelperConfiguration(
             ProviderUpdateContext context,
             [NotNull] CrawlJobData jobData,
             Guid organizationId,
@@ -68,12 +68,15 @@ namespace CluedIn.Connector.AzureEventHub
             if (jobData == null)
                 throw new ArgumentNullException(nameof(jobData));
 
+            var dictionary = new Dictionary<string, object>();
+
             if (jobData is AzureEventHubConnectorJobData result)
             {
-                return Task.FromResult(result.ToDictionary());
+                dictionary.Add(AzureEventHubConstants.KeyName.CombineMessages, result.CombineMessages);
+                dictionary.Add(AzureEventHubConstants.KeyName.BatchSize, result.BatchSize);
             }
 
-            throw new InvalidOperationException($"Unexpected data type for AzureEventConnectorJobData, {jobData.GetType()}");
+            return await Task.FromResult(dictionary);
         }
 
         public override Task<IDictionary<string, object>> GetHelperConfiguration(
