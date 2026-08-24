@@ -11,3 +11,26 @@ To learn more about CluedIn, [contact the team](https://www.cluedin.com/discover
 
 [https://www.cluedin.com](https://www.cluedin.com)
 
+---
+
+## Development
+
+### Building locally against a specific CluedIn version
+
+Copy `Directory.Build.props.user.template` to `Directory.Build.props.user` (git-ignored) and edit the version pair:
+
+```xml
+<_CluedIn>4.7.0</_CluedIn>
+<CluedInMultiVersionTargetFramework>net6.0</CluedInMultiVersionTargetFramework>
+```
+
+Available combinations:
+
+| CluedIn version | TFM |
+|---|---|
+| 4.6.0 | net6.0 |
+| 4.7.0 | net6.0 |
+| 4.8.0 | net6.0 |
+| 5.0.0-alpha.* | net10.0 |
+
+Visual Studio will pick this up automatically on next build. For the CLI equivalent: `dotnet build /p:_CluedIn=4.7.0 /p:CluedInMultiVersionTargetFramework=net6.0`
