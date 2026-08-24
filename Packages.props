@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup Label="Dependency Versions">
-    <_EntityFramework>10.0.7</_EntityFramework>
+    <_EntityFramework>6.0.16</_EntityFramework>
     <_AutoFixture>5.0.0-preview0012</_AutoFixture>
     <_CluedIn Condition="'$(_CluedIn)' == ''">5.0.0-*</_CluedIn>
 
@@ -30,6 +30,8 @@
     <PackageReference Update="Moq" Version="4.13.1" />
     <PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(_EntityFramework)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.InMemory" Version="$(_EntityFramework)" />
+    <PackageReference Update="Microsoft.EntityFrameworkCore" Version="10.0.7" Condition="$(DefineConstants.Contains('CLUEDIN_V50'))" />
+    <PackageReference Update="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" Condition="$(DefineConstants.Contains('CLUEDIN_V50'))" />
     <PackageReference Update="coverlet.collector" Version="1.2.0" />
     <PackageReference Update="FluentAssertions" Version="6.11.0" />
   </ItemGroup>

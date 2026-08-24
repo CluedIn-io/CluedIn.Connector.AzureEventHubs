@@ -81,7 +81,11 @@ namespace CluedIn.Connector.AzureEventHub
                 foreach (var organizationProfile in organizationProfiles)
                 {
                     var executionContext = ApplicationContext.CreateExecutionContext(organizationProfile.Id);
+#if CLUEDIN_V47
                     var streams = await streamRepository.GetAllStreams(executionContext).ToList();
+#else
+                    var streams = streamRepository.GetAllStreams().ToList();
+#endif
 
                     foreach (var provider in executionContext.Organization.Providers.AllProviderDefinitions.Where(x =>
                                  x.ProviderId == AzureEventHubConstants.ProviderId))
