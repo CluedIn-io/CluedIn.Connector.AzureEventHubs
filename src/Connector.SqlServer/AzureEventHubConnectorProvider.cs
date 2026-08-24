@@ -68,15 +68,12 @@ namespace CluedIn.Connector.AzureEventHub
             if (jobData == null)
                 throw new ArgumentNullException(nameof(jobData));
 
-            var dictionary = new Dictionary<string, object>();
-
             if (jobData is AzureEventHubConnectorJobData result)
             {
-                dictionary.Add(AzureEventHubConstants.KeyName.CombineMessages, result.CombineMessages);
-                dictionary.Add(AzureEventHubConstants.KeyName.BatchSize, result.BatchSize);
+                return await Task.FromResult(result.ToDictionary());
             }
 
-            return await Task.FromResult(dictionary);
+            return await Task.FromResult(new Dictionary<string, object>());
         }
 
         public override Task<IDictionary<string, object>> GetHelperConfiguration(
