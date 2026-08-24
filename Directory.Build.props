@@ -1,7 +1,13 @@
 <Project>
   <PropertyGroup Label="Compilation Metadata">
+    <!-- Pipeline sets CluedInMultiVersionTargetFramework explicitly; for local dev derive it from _CluedIn -->
     <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' != ''">$(CluedInMultiVersionTargetFramework)</TargetFramework>
-    <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' == ''">net10.0</TargetFramework>
+    <!-- Local dev fallback: derive TFM from _CluedIn default so package versions stay consistent -->
+    <_CluedInLocalDefault Condition="'$(_CluedIn)' == ''">5.0.0-*</_CluedInLocalDefault>
+    <_CluedInLocalDefault Condition="'$(_CluedIn)' != ''">$(_CluedIn)</_CluedInLocalDefault>
+    <_CluedInLocalMajor>$(_CluedInLocalDefault.Substring(0,1))</_CluedInLocalMajor>
+    <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' == '' AND '$(_CluedInLocalMajor)' == '4'">net6.0</TargetFramework>
+    <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' == '' AND '$(_CluedInLocalMajor)' != '4'">net10.0</TargetFramework>
   </PropertyGroup>
 
   <!-- TODO: Clean up warnings -->
