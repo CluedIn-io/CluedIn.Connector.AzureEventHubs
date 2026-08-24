@@ -35,6 +35,7 @@ resources:
       ref: ${{ parameters.pipelineTemplateRef }}
 
 variables:
+  - group: AzureEventHub-Integration
   - name: testFolderPath
     value: '$(Build.SourcesDirectory)/test'
   - name: DOTNET_SKIP_FIRST_TIME_EXPERIENCE
@@ -58,6 +59,7 @@ jobs:
       useGitVersionDotNetTool: true
       publishToDevFeed: true
       probeCluedInVersion: ${{ trim(parameters.probeCluedInVersion) }}
+      executeIntegrationTests: true
       multiVersionCluedInTargets:
         - cluedInVersion: '4.6.0'
         - cluedInVersion: '4.7.0'
