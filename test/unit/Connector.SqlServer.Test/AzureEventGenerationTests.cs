@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using AutoFixture.Xunit2;
+using AutoFixture.Xunit3;
 using CluedIn.Core.Connectors;
 using CluedIn.Core.Data.Vocabularies;
 using Xunit;
