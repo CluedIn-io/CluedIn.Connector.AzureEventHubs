@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- this section copies the dependencies to the output folder. this is required when copying the output to the ServerComponents folder of CluedIn when executing on your developer pc -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- remove the unused/noisy lang folders. not required just produces a nicer output -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Connector.DataActivator\Connector.DataActivator.csproj" />
+    <ProjectReference Include="..\..\src\Connector.RealTimeIntelligence\Connector.RealTimeIntelligence.csproj" />
+    <ProjectReference Include="..\..\src\Connector.SqlServer\Connector.AzureEventHub.csproj" />
+  </ItemGroup>
+  <!-- CopyLocalLockFileAssemblies copies the FULL resolved dependency graph (200+ dlls: Hangfire,
+       RabbitMQ, EF Core, Serilog, the transitive CluedIn.* sub-packages, etc.), because ExcludeAssets
+       only strips the packages listed above and not their own dependencies. All of that is already
+       present in CluedIn's ServerComponents folder on your dev pc - the only thing actually missing
+       there is Azure.Messaging.EventHubs, so this target drops every other nuget-sourced copy-local
+       file and keeps just the packages listed in _RequiredPackageIds and their real dependency closure. -->
+  <PropertyGroup>
+    <_RequiredPackageIds>;Azure.Messaging.EventHubs;</_RequiredPackageIds>
+  </PropertyGroup>
+  <Target Name="RemoveUnrelatedCopyLocalAssemblies" AfterTargets="ResolveReferences" Condition="'$(Configuration)' == 'Debug'">
+    <ItemGroup>
+      <_UnrelatedPackageCopyLocalPaths Include="@(ReferenceCopyLocalPaths)"
+                                       Condition="$([System.String]::Copy('%(Identity)').ToLowerInvariant().StartsWith($([System.String]::Copy('$(NuGetPackageRoot)').ToLowerInvariant())))
+                                                  and !$(_RequiredPackageIds.Contains(';%(ReferenceCopyLocalPaths.NuGetPackageId);'))" />
+      <ReferenceCopyLocalPaths Remove="@(_UnrelatedPackageCopyLocalPaths)" />
+    </ItemGroup>
+  </Target>
+</Project>
