@@ -17,7 +17,7 @@
        there is Azure.Messaging.EventHubs, so this target drops every other nuget-sourced copy-local
        file and keeps just the packages listed in _RequiredPackageIds and their real dependency closure. -->
   <PropertyGroup>
-    <_RequiredPackageIds>;Azure.Messaging.EventHubs;</_RequiredPackageIds>
+    <_RequiredPackageIds>;Azure.Messaging.EventHubs;Azure.Core.Amqp;Microsoft.Azure.Amqp;</_RequiredPackageIds>
   </PropertyGroup>
   <Target Name="RemoveUnrelatedCopyLocalAssemblies" AfterTargets="ResolveReferences" Condition="'$(Configuration)' == 'Debug'">
     <ItemGroup>
