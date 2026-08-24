@@ -1,5 +1,11 @@
 <Project>
+  <!-- Import local developer overrides (git-ignored). Create Directory.Build.props.user to set
+       _CluedIn and CluedInMultiVersionTargetFramework for Visual Studio builds. -->
+  <Import Project="$(MSBuildThisFileDirectory)Directory.Build.props.user"
+          Condition="Exists('$(MSBuildThisFileDirectory)Directory.Build.props.user')" />
+
   <PropertyGroup Label="Compilation Metadata">
+    <!-- Multi-version targeting: pipeline overrides this per build leg; .user file for local dev -->
     <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' != ''">$(CluedInMultiVersionTargetFramework)</TargetFramework>
     <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' == ''">net10.0</TargetFramework>
   </PropertyGroup>

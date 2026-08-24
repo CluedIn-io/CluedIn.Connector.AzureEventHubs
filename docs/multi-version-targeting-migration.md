@@ -8,6 +8,18 @@ This document describes the changes made to migrate `CluedIn.Connector.AzureEven
 
 The goal is to produce separate NuGet packages per CluedIn version (e.g. `CluedIn.Connector.AzureEventHub.460`, `.470`, `.480`, `.50`) from a single branch, using the shared `crawler.build.jobs.yml` pipeline template. Each package targets the correct .NET TFM for that CluedIn generation.
 
+### Building locally
+
+To build against a specific CluedIn version locally, pass both properties — mirroring exactly what the pipeline does:
+
+```
+dotnet build /p:_CluedIn=4.7.0 /p:CluedInMultiVersionTargetFramework=net6.0
+dotnet build /p:_CluedIn=4.8.0 /p:CluedInMultiVersionTargetFramework=net6.0
+dotnet build /p:_CluedIn=5.0.0-alpha.676 /p:CluedInMultiVersionTargetFramework=net10.0
+```
+
+Without these overrides the defaults in `Packages.props` and `Directory.Build.props` apply (5.0 / net10.0).
+
 ---
 
 ## Step 1 — Switch the pipeline template
