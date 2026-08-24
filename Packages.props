@@ -1,8 +1,17 @@
 <Project>
   <PropertyGroup Label="Dependency Versions">
-    <_EntityFramework>10.0.7</_EntityFramework>
+    <_EntityFramework>6.0.16</_EntityFramework>
     <_AutoFixture>5.0.0-preview0012</_AutoFixture>
-    <_CluedIn>5.0.0-*</_CluedIn>
+    <_CluedIn Condition="'$(_CluedIn)' == ''">5.0.0-*</_CluedIn>
+
+    <_HyphenIndex>$(_CluedIn.IndexOf('-'))</_HyphenIndex>
+
+    <_CluedInVersionOnly Condition="'$(_HyphenIndex)' != '-1'">$(_CluedIn.Substring(0, $(_HyphenIndex)))</_CluedInVersionOnly>
+    <_CluedInVersionOnly Condition="'$(_HyphenIndex)' == '-1'">$(_CluedIn)</_CluedInVersionOnly>
+
+    <DefineConstants Condition="$([System.Version]::Parse($(_CluedInVersionOnly))) &gt;= $([System.Version]::Parse('4.7.0'))">$(DefineConstants);CLUEDIN_V47</DefineConstants>
+    <DefineConstants Condition="$([System.Version]::Parse($(_CluedInVersionOnly))) &gt;= $([System.Version]::Parse('4.8.0'))">$(DefineConstants);CLUEDIN_V48</DefineConstants>
+    <DefineConstants Condition="$([System.Version]::Parse($(_CluedInVersionOnly))) &gt;= $([System.Version]::Parse('5.0.0'))">$(DefineConstants);CLUEDIN_V50</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <!--
@@ -11,16 +20,24 @@
         MUST SPECIFY IN CSPROJ AS <PackageReference Name="<depName>" />
     -->
     <PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Update="Microsoft.NET.Test.Sdk" Version="17.12.0" Condition="!$(DefineConstants.Contains('CLUEDIN_V50'))" />
     <PackageReference Update="Azure.Messaging.EventHubs" Version="5.7.1" />
     <PackageReference Update="AutoFixture.Xunit3" Version="$(_AutoFixture)" />
+    <PackageReference Update="AutoFixture.Xunit2" Version="4.18.0" />
     <PackageReference Update="AutoFixture.Idioms" Version="$(_AutoFixture)" />
+    <PackageReference Update="AutoFixture.Idioms" Version="4.18.0" Condition="!$(DefineConstants.Contains('CLUEDIN_V50'))" />
     <PackageReference Update="AutoFixture.AutoMoq" Version="$(_AutoFixture)" />
+    <PackageReference Update="AutoFixture.AutoMoq" Version="4.18.0" Condition="!$(DefineConstants.Contains('CLUEDIN_V50'))" />
     <PackageReference Update="coverlet.msbuild" Version="2.8.0" />
     <PackageReference Update="xunit.v3" Version="3.2.2" />
+    <PackageReference Update="xunit" Version="2.9.3" />
     <PackageReference Update="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Update="xunit.runner.visualstudio" Version="2.8.2" Condition="!$(DefineConstants.Contains('CLUEDIN_V50'))" />
     <PackageReference Update="Moq" Version="4.13.1" />
     <PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(_EntityFramework)" />
     <PackageReference Update="Microsoft.EntityFrameworkCore.InMemory" Version="$(_EntityFramework)" />
+    <PackageReference Update="Microsoft.EntityFrameworkCore" Version="10.0.7" Condition="$(DefineConstants.Contains('CLUEDIN_V50'))" />
+    <PackageReference Update="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" Condition="$(DefineConstants.Contains('CLUEDIN_V50'))" />
     <PackageReference Update="coverlet.collector" Version="1.2.0" />
     <PackageReference Update="FluentAssertions" Version="6.11.0" />
   </ItemGroup>

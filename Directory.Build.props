@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup Label="Compilation Metadata">
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' != ''">$(CluedInMultiVersionTargetFramework)</TargetFramework>
+    <TargetFramework Condition="'$(CluedInMultiVersionTargetFramework)' == ''">net10.0</TargetFramework>
   </PropertyGroup>
 
   <!-- TODO: Clean up warnings -->
