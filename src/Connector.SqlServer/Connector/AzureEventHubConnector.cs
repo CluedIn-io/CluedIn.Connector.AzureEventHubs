@@ -107,7 +107,10 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 }
                 else
                 {
-                    await client.SendAsync(eventData);
+                    await SendInSizeLimitedBatches(
+                        eventData,
+                        () => client.CreateBatchAsync().AsTask(),
+                        batch => client.SendAsync(batch));
                 }
             }
             catch
@@ -130,6 +133,41 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 }
 
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Sends <paramref name="events"/> in as few messages as the Event Hub allows, starting a new batch
+        /// whenever the next event would push the current one past the hub's maximum message size (1 MB on
+        /// Standard). Passing the whole flush (up to 50 events) to a single SendAsync is rejected outright once
+        /// their combined size passes the limit - 1,137,914 bytes for 49 events in one UAT export, failing the
+        /// whole flush and retrying it forever. An event too big to fit even an empty batch can never be sent;
+        /// that throws, after the events before it have gone.
+        /// </summary>
+        internal static async Task SendInSizeLimitedBatches(
+            IReadOnlyList<EventData> events,
+            Func<Task<EventDataBatch>> createBatch,
+            Func<EventDataBatch, Task> send)
+        {
+            var next = 0;
+
+            while (next < events.Count)
+            {
+                using var batch = await createBatch();
+
+                while (next < events.Count && batch.TryAdd(events[next]))
+                {
+                    next++;
+                }
+
+                if (batch.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"An event of {events[next].Body.Length} bytes is larger than the Event Hub accepts in one " +
+                        $"message ({batch.MaximumSizeInBytes} bytes), so it cannot be sent.");
+                }
+
+                await send(batch);
             }
         }
 
