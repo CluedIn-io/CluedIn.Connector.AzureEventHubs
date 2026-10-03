@@ -274,6 +274,9 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         {
             var providerDefinitionId = streamModel.ConnectorProviderDefinitionId!.Value;
 
+            // Resolved before the message is built: RoutingKey is stamped on the envelope below.
+            var configurations = await GetStreamConfiguration(executionContext, providerDefinitionId, streamModel);
+
             // matching output format of previous version of the connector
             var data = connectorEntityData.Properties.ToDictionary(x => x.Name, x => x.Value);
             data.Add("Id", connectorEntityData.EntityId);
@@ -315,6 +318,14 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                     { "Data", data }
                 };
 
+                // On the envelope, not inside Data: a Removed event's Data holds only Id and an
+                // empty Codes, so a consumer routing deletes needs this outside it. Omitted
+                // entirely when unset, so existing consumers see no change.
+                if (configurations.RoutingKey != null)
+                {
+                    dataWrapper.Add("RoutingKey", configurations.RoutingKey);
+                }
+
                 data = dataWrapper;
             }
             else
@@ -329,12 +340,6 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                     TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
                 }))
             );
-
-            var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-            var configuration = config.Authentication.ToDictionary(x => x.Key, x => x.Value);
-            if (streamModel.ConnectorProperties != null)
-                configuration.AddRange(streamModel.ConnectorProperties);
-            var configurations = new AzureEventHubConnectorJobData(configuration);
 
             try
             {
@@ -371,6 +376,21 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         public virtual async Task<IConnectorConnectionV2> GetAuthenticationDetails(ExecutionContext executionContext, Guid providerDefinitionId)
         {
             return await AuthenticationDetailsHelper.GetAuthenticationDetails(executionContext, providerDefinitionId);
+        }
+
+        /// <summary>
+        /// The export target's configuration with the stream's own connector properties added, so a
+        /// stream can carry its own settings (combine messages, batch size, routing key).
+        /// </summary>
+        public virtual async Task<AzureEventHubConnectorJobData> GetStreamConfiguration(
+            ExecutionContext executionContext, Guid providerDefinitionId, IReadOnlyStreamModel streamModel)
+        {
+            var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+            var configuration = config.Authentication.ToDictionary(x => x.Key, x => x.Value);
+            if (streamModel.ConnectorProperties != null)
+                configuration.AddRange(streamModel.ConnectorProperties);
+
+            return new AzureEventHubConnectorJobData(configuration);
         }
     }
 }

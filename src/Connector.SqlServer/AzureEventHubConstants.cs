@@ -13,6 +13,7 @@ namespace CluedIn.Connector.AzureEventHub
             public const string Name = "name";
             public const string CombineMessages = "combineMessages";
             public const string BatchSize = "batchSize";
+            public const string RoutingKey = "routingKey";
         }
 
         // Some Event Hub tiers cap message size at 1 MB; this leaves headroom for the JSON wrapper/encoding overhead.
@@ -116,6 +117,18 @@ namespace CluedIn.Connector.AzureEventHub
                         { "message", $"Must be a whole number from {MinBatchSize} to {DefaultFlushSize}" }
                     }
                 },
+            },
+            new Control
+            {
+                Name = KeyName.RoutingKey,
+                DisplayName = "Routing key",
+                // A Removed event carries only { Id, Codes: [] } - no EntityType, and no
+                // discriminator in the Event Hubs message properties either - so a consumer
+                // reading a hub shared by several streams cannot tell which entity type a delete
+                // belongs to. Stamping the stream's routing key on every message gives it one.
+                Help = "Optional. Stamped on every message as \"RoutingKey\", including deletes, so a consumer reading a shared event hub can tell which stream a message came from. Deletes carry no EntityType, so without this they cannot be routed.",
+                Type = "input",
+                IsRequired = false,
             },
         };
 
