@@ -376,13 +376,14 @@ namespace CluedIn.Connector.AzureEventHub.Connector
 
             if (body == null)
             {
-                // Only this event is requeued. Buffered, it would fail its whole flush and take the
-                // events batched with it down too.
+                // Failed, not ReQueue: the hub rejects this event every time, so a requeue only loops it
+                // (11 retries, then CluedIn's dead-letter queue). It is never buffered, so the events it would
+                // have been batched with are unaffected.
                 _logger.LogError(
-                    "[AzureEventHub] Entity {entityId} is {size} bytes even without its edges, over the {limit}-byte Event Hub limit; requeued, not sent",
+                    "[AzureEventHub] Entity {entityId} is {size} bytes even without its edges, over the {limit}-byte Event Hub limit; failed, not sent",
                     connectorEntityData.EntityId, fullSize, MaxEventBytes);
 
-                return SaveResult.ReQueue;
+                return SaveResult.Failed;
             }
 
             if (edgesOmitted)
