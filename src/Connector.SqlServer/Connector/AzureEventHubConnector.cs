@@ -318,6 +318,7 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             // matching output format of previous version of the connector
             var data = connectorEntityData.Properties.ToDictionary(x => x.Name, x => x.Value);
             data.Add("Id", connectorEntityData.EntityId);
+            var entity = data;
 
             if (connectorEntityData.PersistInfo != null)
             {
@@ -371,13 +372,27 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 data.Add("ChangeType", connectorEntityData.ChangeType.ToString());
             }
 
-            var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data,
-                new JsonSerializer
-                {
-                    Formatting = Formatting.Indented,
-                    TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
-                }))
-            );
+            var body = SerializeWithinLimit(data, entity, MaxEventBytes, out var edgesOmitted, out var fullSize);
+
+            if (body == null)
+            {
+                // Only this event is requeued. Buffered, it would fail its whole flush and take the
+                // events batched with it down too.
+                _logger.LogError(
+                    "[AzureEventHub] Entity {entityId} is {size} bytes even without its edges, over the {limit}-byte Event Hub limit; requeued, not sent",
+                    connectorEntityData.EntityId, fullSize, MaxEventBytes);
+
+                return SaveResult.ReQueue;
+            }
+
+            if (edgesOmitted)
+            {
+                _logger.LogWarning(
+                    "[AzureEventHub] Entity {entityId} is {size} bytes with its edges, over the {limit}-byte Event Hub limit; sent without them ({sentSize} bytes, EdgesOmitted=true)",
+                    connectorEntityData.EntityId, fullSize, MaxEventBytes, body.Length);
+            }
+
+            var eventData = new EventData(body);
 
             try
             {
@@ -391,6 +406,58 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             }
 
             return new SaveResult(SaveResultState.Success);
+        }
+
+        /// <summary>
+        /// Largest serialized event the connector sends. The hub's limit is 1,048,576 bytes on Standard,
+        /// and that includes the AMQP envelope and batch framing, so leave headroom.
+        /// </summary>
+        internal const int MaxEventBytes = 1_000_000;
+
+        /// <summary>
+        /// Serializes <paramref name="message"/>. If that is over <paramref name="maxBytes"/>, removes the
+        /// edges from <paramref name="entity"/> (the dictionary under Data, or the message itself outside
+        /// event-stream mode), marks it <c>EdgesOmitted</c>, and tries again: an entity linked to thousands
+        /// of others carries them all inline (2.9 MB and 11.6 MB in UAT, 2026-10-03) and the hub rejects
+        /// it outright, forever. Returns null if it is still too big.
+        /// </summary>
+        internal static byte[] SerializeWithinLimit(
+            IDictionary<string, object> message,
+            IDictionary<string, object> entity,
+            int maxBytes,
+            out bool edgesOmitted,
+            out int fullSize)
+        {
+            var body = Serialize(message);
+            fullSize = body.Length;
+            edgesOmitted = false;
+
+            if (body.Length <= maxBytes)
+            {
+                return body;
+            }
+
+            var hadEdges = entity.Remove("OutgoingEdges") | entity.Remove("IncomingEdges");
+            if (!hadEdges)
+            {
+                return null;
+            }
+
+            entity["EdgesOmitted"] = true;
+            edgesOmitted = true;
+            body = Serialize(message);
+
+            return body.Length <= maxBytes ? body : null;
+        }
+
+        private static byte[] Serialize(object message)
+        {
+            return Encoding.UTF8.GetBytes(JsonUtility.Serialize(message,
+                new JsonSerializer
+                {
+                    Formatting = Formatting.Indented,
+                    TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
+                }));
         }
 
         public override Task<ConnectorLatestEntityPersistInfo> GetLatestEntityPersistInfo(ExecutionContext executionContext, IReadOnlyStreamModel streamModel, Guid entityId)
