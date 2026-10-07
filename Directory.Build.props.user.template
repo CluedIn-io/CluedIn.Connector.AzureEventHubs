@@ -1,0 +1,13 @@
+<Project>
+  <!-- Copy this file to Directory.Build.props.user (git-ignored) and edit to target a specific
+       CluedIn version in Visual Studio. Both values must be changed together.
+
+       4.6.0 / net6.0
+       4.7.0 / net6.0
+       4.8.0 / net6.0
+       5.0.0-alpha.676 / net10.0  (replace with latest alpha from the develop feed) -->
+  <PropertyGroup>
+    <_CluedIn>4.7.0</_CluedIn>
+    <CluedInMultiVersionTargetFramework>net6.0</CluedInMultiVersionTargetFramework>
+  </PropertyGroup>
+</Project>

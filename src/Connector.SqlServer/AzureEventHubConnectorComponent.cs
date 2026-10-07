@@ -6,6 +6,8 @@ using Castle.MicroKernel.Registration;
 using CluedIn.Connector.AzureEventHub.Connector;
 using CluedIn.Core;
 using CluedIn.Core.Accounts;
+using CluedIn.Core.Data.Relational;
+using CluedIn.Core.DataStore.Entities;
 using CluedIn.Core.Providers;
 using CluedIn.Core.Server;
 using CluedIn.Core.Streams;
@@ -73,30 +75,36 @@ namespace CluedIn.Connector.AzureEventHub
                     }
                 }
 
-                var streams = streamRepository.GetAllStreams().ToList();
+                var orgDataStore = ApplicationContext.System.Organization.DataStores.GetDataStore<OrganizationProfile>();
+                var organizationProfiles = await orgDataStore.SelectAsync(ApplicationContext.System.CreateExecutionContext(), _ => true);
 
-                var organizationIds = streams.Select(s => s.OrganizationId).Distinct().ToArray();
-
-                foreach (var orgId in organizationIds)
+                foreach (var organizationProfile in organizationProfiles)
                 {
-                    var org = new Organization(ApplicationContext, orgId);
+                    var executionContext = ApplicationContext.CreateExecutionContext(organizationProfile.Id);
+#if CLUEDIN_V47
+                    var streams = await streamRepository.GetAllStreams(executionContext).ToList();
+#else
+                    var streams = streamRepository.GetAllStreams().ToList();
+#endif
 
-                    foreach (var provider in org.Providers.AllProviderDefinitions.Where(x =>
+                    foreach (var provider in executionContext.Organization.Providers.AllProviderDefinitions.Where(x =>
                                  x.ProviderId == AzureEventHubConstants.ProviderId))
                     {
                         foreach (var stream in streams.Where(s => s.ConnectorProviderDefinitionId == provider.Id))
                         {
                             if (stream.Mode != StreamMode.EventStream)
                             {
-                                var executionContext = ApplicationContext.CreateExecutionContext(orgId);
-
                                 var model = new SetupConnectorModel
                                 {
                                     ConnectorProviderDefinitionId = provider.Id,
                                     Mode = StreamMode.EventStream,
                                     ContainerName = stream.ContainerName,
                                     DataTypes =
+#if CLUEDIN_V47
+                                        (await streamRepository.GetStreamMappings(executionContext, stream.Id))
+#else
                                         (await streamRepository.GetStreamMappings(stream.Id))
+#endif
                                         .Select(x => new DataTypeEntry
                                         {
                                             Key = x.SourceDataType,
@@ -110,7 +118,11 @@ namespace CluedIn.Connector.AzureEventHub
 
                                 Log.LogInformation($"Setting {nameof(StreamMode.EventStream)} for stream '{stream.Name}' ({stream.Id})");
 
+#if CLUEDIN_V47
+                                await streamRepository.SetupConnector(executionContext, stream.Id, model);
+#else
                                 await streamRepository.SetupConnector(stream.Id, model, executionContext);
+#endif
                             }
                         }
                     }

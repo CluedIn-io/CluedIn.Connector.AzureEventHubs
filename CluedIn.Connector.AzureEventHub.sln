@@ -58,6 +58,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connector.DataActivator", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connector.RealTimeIntelligence", "src\Connector.RealTimeIntelligence\Connector.RealTimeIntelligence.csproj", "{364F3946-E08A-4FAA-A887-DE2E0451C058}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Connector.DevHost", "tools\Connector.DevHost\Connector.DevHost.csproj", "{5D7E149A-5233-4314-9D14-97C25758B6F3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -84,6 +88,10 @@ Global
 		{364F3946-E08A-4FAA-A887-DE2E0451C058}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{364F3946-E08A-4FAA-A887-DE2E0451C058}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{364F3946-E08A-4FAA-A887-DE2E0451C058}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D7E149A-5233-4314-9D14-97C25758B6F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D7E149A-5233-4314-9D14-97C25758B6F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D7E149A-5233-4314-9D14-97C25758B6F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D7E149A-5233-4314-9D14-97C25758B6F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -101,6 +109,7 @@ Global
 		{2C2CB6A0-AEDD-45D4-8C9F-493760949978} = {DBD1964B-DBD9-4C70-96CA-391C34B3D75F}
 		{28A28F1A-92D4-4AAC-AFD9-529EEFA5CEE3} = {B2A52533-7FBF-41FE-A0AF-874FC54300B2}
 		{364F3946-E08A-4FAA-A887-DE2E0451C058} = {B2A52533-7FBF-41FE-A0AF-874FC54300B2}
+		{5D7E149A-5233-4314-9D14-97C25758B6F3} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6A61CB42-80C5-4A83-AC3E-DA41FC875525}

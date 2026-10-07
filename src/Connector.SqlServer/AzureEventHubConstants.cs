@@ -11,7 +11,18 @@ namespace CluedIn.Connector.AzureEventHub
         {
             public const string ConnectionString = "connectinString";
             public const string Name = "name";
+            public const string CombineMessages = "combineMessages";
+            public const string BatchSize = "batchSize";
         }
+
+        // Some Event Hub tiers cap message size at 1 MB; this leaves headroom for the JSON wrapper/encoding overhead.
+        public const int MaxCombinedMessageBytes = 800_000;
+        public const int DefaultBatchSize = 20;
+        public const int MinBatchSize = 1;
+        // Fixed buffer flush size/cadence - tied to the platform's default RabbitMQ prefetch count, see the
+        // comment in AzureEventHubConnector's constructor. BatchSize is clamped to this as an upper bound.
+        public const int DefaultFlushSize = 50;
+        public const int FlushTimeoutMilliseconds = 10000;
 
         public const string ConnectorName = "AzureEventConnector";
         public const string ConnectorComponentName = "AzureEventConnector";
@@ -70,9 +81,42 @@ namespace CluedIn.Connector.AzureEventHub
             }
         };
 
+        /// <summary>
+        /// Builds a validation regex that matches INVALID batch size values (i.e. anything outside
+        /// [<paramref name="min"/>, <paramref name="max"/>]), so the UI error message is triggered
+        /// for out-of-range input.
+        /// </summary>
+        internal static string BuildBatchSizeValidationRegex(int min, int max)
+        {
+            var validAlternation = string.Join("|", System.Linq.Enumerable.Range(min, max - min + 1));
+            return $"^(?!({validAlternation})$).*$";
+        }
+
         public static IEnumerable<Control> Properties = new List<Control>
         {
-
+            new Control
+            {
+                Name = KeyName.CombineMessages,
+                DisplayName = "Combine multiple records into a single Event Hub message",
+                Help = "When enabled, records are combined into a single message wrapped as {\"count\": N, \"messages\": [...]} instead of being sent individually - make sure your downstream consumer can parse this format.",
+                Type = "checkbox",
+                IsRequired = false,
+            },
+            new Control
+            {
+                Name = KeyName.BatchSize,
+                DisplayName = "Batch size",
+                Help = $"Records per combined message, 1-{DefaultFlushSize} (default {DefaultBatchSize}). Only applies when combining messages is enabled.",
+                Type = "input",
+                IsRequired = false,
+                ValidationRules = new List<Dictionary<string, string>>()
+                {
+                    new() {
+                        { "regex", BuildBatchSizeValidationRegex(MinBatchSize, DefaultFlushSize) },
+                        { "message", $"Must be a whole number from {MinBatchSize} to {DefaultFlushSize}" }
+                    }
+                },
+            },
         };
 
         public static readonly ComponentEmailDetails ComponentEmailDetails = new ComponentEmailDetails {
