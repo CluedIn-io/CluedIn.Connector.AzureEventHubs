@@ -16,6 +16,7 @@ namespace CluedIn.Connector.AzureEventHub
             ConnectionString = GetValue<string>(configuration, AzureEventHubConstants.KeyName.ConnectionString);
             Name = GetValue<string>(configuration, AzureEventHubConstants.KeyName.Name);
             CombineMessages = GetBool(configuration, AzureEventHubConstants.KeyName.CombineMessages, false);
+            RoutingKey = GetOptionalString(configuration, AzureEventHubConstants.KeyName.RoutingKey);
 
             // Clamped to DefaultFlushSize, the buffer's ceiling (a single flush can never exceed it, though it
             // may be less - see AzureEventHubConnector's constructor comment and Buffer.AutoAdjustMaxSize), so
@@ -33,6 +34,15 @@ namespace CluedIn.Connector.AzureEventHub
         public bool CombineMessages { get; set; }
 
         public int BatchSize { get; set; }
+
+        /// <summary>
+        /// Optional per-stream value stamped on every outgoing message as "RoutingKey", so a
+        /// consumer reading an event hub shared by several streams can tell which stream a message
+        /// came from. A Removed event carries no EntityType, so without this it cannot be routed.
+        /// Deliberately excluded from Equals/GetHashCode: it is already baked into each message body
+        /// and does not change where the message goes, so including it would only split buffer partitions.
+        /// </summary>
+        public string RoutingKey { get; set; }
 
         // Deliberately not the base class's GetValue<T>: that helper throws on a value it can't convert (e.g. an
         // empty or non-numeric string), whereas these two need to fall back to defaultValue on anything they
@@ -55,6 +65,18 @@ namespace CluedIn.Connector.AzureEventHub
             }
 
             return bool.TryParse(raw.ToString(), out var parsed) ? parsed : defaultValue;
+        }
+
+        // Optional: a missing or blank value simply means "unset".
+        private static string GetOptionalString(IDictionary<string, object> configuration, string key)
+        {
+            if (!TryGetRawConfigValue(configuration, key, out var raw))
+            {
+                return null;
+            }
+
+            var value = raw.ToString();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
         }
 
         private static int GetPositiveInt(IDictionary<string, object> configuration, string key, int defaultValue)
@@ -111,7 +133,8 @@ namespace CluedIn.Connector.AzureEventHub
                 { AzureEventHubConstants.KeyName.ConnectionString, ConnectionString },
                 { AzureEventHubConstants.KeyName.Name, Name },
                 { AzureEventHubConstants.KeyName.CombineMessages, CombineMessages },
-                { AzureEventHubConstants.KeyName.BatchSize, BatchSize }
+                { AzureEventHubConstants.KeyName.BatchSize, BatchSize },
+                { AzureEventHubConstants.KeyName.RoutingKey, RoutingKey }
             };
         }
     }

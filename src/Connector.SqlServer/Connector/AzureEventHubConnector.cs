@@ -107,7 +107,10 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 }
                 else
                 {
-                    await client.SendAsync(eventData);
+                    await SendInSizeLimitedBatches(
+                        eventData,
+                        () => client.CreateBatchAsync().AsTask(),
+                        batch => client.SendAsync(batch));
                 }
             }
             catch
@@ -130,6 +133,41 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 }
 
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Sends <paramref name="events"/> in as few messages as the Event Hub allows, starting a new batch
+        /// whenever the next event would push the current one past the hub's maximum message size (1 MB on
+        /// Standard). Passing the whole flush (up to 50 events) to a single SendAsync is rejected outright once
+        /// their combined size passes the limit - 1,137,914 bytes for 49 events in one UAT export, failing the
+        /// whole flush and retrying it forever. An event too big to fit even an empty batch can never be sent;
+        /// that throws, after the events before it have gone.
+        /// </summary>
+        internal static async Task SendInSizeLimitedBatches(
+            IReadOnlyList<EventData> events,
+            Func<Task<EventDataBatch>> createBatch,
+            Func<EventDataBatch, Task> send)
+        {
+            var next = 0;
+
+            while (next < events.Count)
+            {
+                using var batch = await createBatch();
+
+                while (next < events.Count && batch.TryAdd(events[next]))
+                {
+                    next++;
+                }
+
+                if (batch.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"An event of {events[next].Body.Length} bytes is larger than the Event Hub accepts in one " +
+                        $"message ({batch.MaximumSizeInBytes} bytes), so it cannot be sent.");
+                }
+
+                await send(batch);
             }
         }
 
@@ -274,9 +312,13 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         {
             var providerDefinitionId = streamModel.ConnectorProviderDefinitionId!.Value;
 
+            // Resolved before the message is built: RoutingKey is stamped on the envelope below.
+            var configurations = await GetStreamConfiguration(executionContext, providerDefinitionId, streamModel);
+
             // matching output format of previous version of the connector
             var data = connectorEntityData.Properties.ToDictionary(x => x.Name, x => x.Value);
             data.Add("Id", connectorEntityData.EntityId);
+            var entity = data;
 
             if (connectorEntityData.PersistInfo != null)
             {
@@ -315,6 +357,14 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                     { "Data", data }
                 };
 
+                // On the envelope, not inside Data: a Removed event's Data holds only Id and an
+                // empty Codes, so a consumer routing deletes needs this outside it. Omitted
+                // entirely when unset, so existing consumers see no change.
+                if (configurations.RoutingKey != null)
+                {
+                    dataWrapper.Add("RoutingKey", configurations.RoutingKey);
+                }
+
                 data = dataWrapper;
             }
             else
@@ -322,19 +372,28 @@ namespace CluedIn.Connector.AzureEventHub.Connector
                 data.Add("ChangeType", connectorEntityData.ChangeType.ToString());
             }
 
-            var eventData = new EventData(Encoding.UTF8.GetBytes(JsonUtility.Serialize(data,
-                new JsonSerializer
-                {
-                    Formatting = Formatting.Indented,
-                    TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
-                }))
-            );
+            var body = SerializeWithinLimit(data, entity, MaxEventBytes, out var edgesOmitted, out var fullSize);
 
-            var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
-            var configuration = config.Authentication.ToDictionary(x => x.Key, x => x.Value);
-            if (streamModel.ConnectorProperties != null)
-                configuration.AddRange(streamModel.ConnectorProperties);
-            var configurations = new AzureEventHubConnectorJobData(configuration);
+            if (body == null)
+            {
+                // Failed, not ReQueue: the hub rejects this event every time, so a requeue only loops it
+                // (11 retries, then CluedIn's dead-letter queue). It is never buffered, so the events it would
+                // have been batched with are unaffected.
+                _logger.LogError(
+                    "[AzureEventHub] Entity {entityId} is {size} bytes even without its edges, over the {limit}-byte Event Hub limit; failed, not sent",
+                    connectorEntityData.EntityId, fullSize, MaxEventBytes);
+
+                return SaveResult.Failed;
+            }
+
+            if (edgesOmitted)
+            {
+                _logger.LogWarning(
+                    "[AzureEventHub] Entity {entityId} is {size} bytes with its edges, over the {limit}-byte Event Hub limit; sent without them ({sentSize} bytes, EdgesOmitted=true)",
+                    connectorEntityData.EntityId, fullSize, MaxEventBytes, body.Length);
+            }
+
+            var eventData = new EventData(body);
 
             try
             {
@@ -348,6 +407,58 @@ namespace CluedIn.Connector.AzureEventHub.Connector
             }
 
             return new SaveResult(SaveResultState.Success);
+        }
+
+        /// <summary>
+        /// Largest serialized event the connector sends. The hub's limit is 1,048,576 bytes on Standard,
+        /// and that includes the AMQP envelope and batch framing, so leave headroom.
+        /// </summary>
+        internal const int MaxEventBytes = 1_000_000;
+
+        /// <summary>
+        /// Serializes <paramref name="message"/>. If that is over <paramref name="maxBytes"/>, removes the
+        /// edges from <paramref name="entity"/> (the dictionary under Data, or the message itself outside
+        /// event-stream mode), marks it <c>EdgesOmitted</c>, and tries again: an entity linked to thousands
+        /// of others carries them all inline (2.9 MB and 11.6 MB in UAT, 2026-10-03) and the hub rejects
+        /// it outright, forever. Returns null if it is still too big.
+        /// </summary>
+        internal static byte[] SerializeWithinLimit(
+            IDictionary<string, object> message,
+            IDictionary<string, object> entity,
+            int maxBytes,
+            out bool edgesOmitted,
+            out int fullSize)
+        {
+            var body = Serialize(message);
+            fullSize = body.Length;
+            edgesOmitted = false;
+
+            if (body.Length <= maxBytes)
+            {
+                return body;
+            }
+
+            var hadEdges = entity.Remove("OutgoingEdges") | entity.Remove("IncomingEdges");
+            if (!hadEdges)
+            {
+                return null;
+            }
+
+            entity["EdgesOmitted"] = true;
+            edgesOmitted = true;
+            body = Serialize(message);
+
+            return body.Length <= maxBytes ? body : null;
+        }
+
+        private static byte[] Serialize(object message)
+        {
+            return Encoding.UTF8.GetBytes(JsonUtility.Serialize(message,
+                new JsonSerializer
+                {
+                    Formatting = Formatting.Indented,
+                    TypeNameHandling = TypeNameHandling.None, // don't want to expose our internal class names
+                }));
         }
 
         public override Task<ConnectorLatestEntityPersistInfo> GetLatestEntityPersistInfo(ExecutionContext executionContext, IReadOnlyStreamModel streamModel, Guid entityId)
@@ -371,6 +482,21 @@ namespace CluedIn.Connector.AzureEventHub.Connector
         public virtual async Task<IConnectorConnectionV2> GetAuthenticationDetails(ExecutionContext executionContext, Guid providerDefinitionId)
         {
             return await AuthenticationDetailsHelper.GetAuthenticationDetails(executionContext, providerDefinitionId);
+        }
+
+        /// <summary>
+        /// The export target's configuration with the stream's own connector properties added, so a
+        /// stream can carry its own settings (combine messages, batch size, routing key).
+        /// </summary>
+        public virtual async Task<AzureEventHubConnectorJobData> GetStreamConfiguration(
+            ExecutionContext executionContext, Guid providerDefinitionId, IReadOnlyStreamModel streamModel)
+        {
+            var config = await GetAuthenticationDetails(executionContext, providerDefinitionId);
+            var configuration = config.Authentication.ToDictionary(x => x.Key, x => x.Value);
+            if (streamModel.ConnectorProperties != null)
+                configuration.AddRange(streamModel.ConnectorProperties);
+
+            return new AzureEventHubConnectorJobData(configuration);
         }
     }
 }
